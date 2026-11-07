@@ -8,10 +8,15 @@ import unittest
 import asyncio
 from pathlib import Path
 
-# Ensure backend can be imported
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# Ensure backend can be imported and isolated test DB is used
+BASE_TEST_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_TEST_DIR.parent))
 
-from backend.config import DATA_DIR, DB_PATH
+# Use isolated test database so production data/openclaw.db is never touched
+TEST_DB_PATH = BASE_TEST_DIR / "test_openclaw.db"
+os.environ["OPENCLAW_DB_PATH"] = str(TEST_DB_PATH)
+
+from backend.config import DATA_DIR
 from backend.database import init_db, has_any_users, get_db_connection
 from backend.auth import (
     create_admin_user, authenticate_user, verify_token, revoke_token, check_ip_lockout, record_login_attempt
@@ -24,6 +29,15 @@ class TestOpenClawBackend(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         init_db()
+
+    @classmethod
+    def tearDownClass(cls):
+        for f in [TEST_DB_PATH, TEST_DB_PATH.with_suffix(".db-wal"), TEST_DB_PATH.with_suffix(".db-shm")]:
+            if f.exists():
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
 
     def test_01_user_and_auth(self):
         # 1. Create admin user
