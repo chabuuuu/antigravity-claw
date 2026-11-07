@@ -34,6 +34,10 @@ const Settings = {
 
     // Raw config save
     document.getElementById("btn-save-raw-config").addEventListener("click", () => this.saveRawConfig());
+
+    // Webhooks save & test
+    document.getElementById("btn-save-webhooks").addEventListener("click", () => this.saveWebhooks());
+    document.getElementById("btn-test-webhooks").addEventListener("click", () => this.testWebhooks());
   },
 
   async loadAll() {
@@ -43,7 +47,8 @@ const Settings = {
       this.loadMcpServers(),
       this.loadPlugins(),
       this.loadRules(),
-      this.loadRawConfig()
+      this.loadRawConfig(),
+      this.loadWebhooks()
     ]);
   },
 
@@ -275,6 +280,72 @@ const Settings = {
       if (res.ok) alert("Raw Antigravity configuration updated!");
     } catch (e) {
       alert("Failed to save raw config: " + e.message);
+    }
+  },
+
+  async loadWebhooks() {
+    try {
+      const res = await fetch("/api/settings/webhooks", { headers: Auth.getAuthHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.telegram_token_configured) {
+        document.getElementById("webhook-tg-token").placeholder = "•••••••••••• (Configured)";
+      }
+      document.getElementById("webhook-tg-chat").value = data.telegram_chat_id || "";
+      if (data.discord_url_configured) {
+        document.getElementById("webhook-discord-url").placeholder = "•••••••••••• (Configured)";
+      }
+      if (data.slack_url_configured) {
+        document.getElementById("webhook-slack-url").placeholder = "•••••••••••• (Configured)";
+      }
+      document.getElementById("webhook-generic-url").value = data.generic_url || "";
+    } catch (e) {
+      console.warn("Error loading webhooks:", e);
+    }
+  },
+
+  async saveWebhooks() {
+    const tgToken = document.getElementById("webhook-tg-token").value.trim();
+    const tgChat = document.getElementById("webhook-tg-chat").value.trim();
+    const discordUrl = document.getElementById("webhook-discord-url").value.trim();
+    const slackUrl = document.getElementById("webhook-slack-url").value.trim();
+    const genericUrl = document.getElementById("webhook-generic-url").value.trim();
+
+    const payload = {};
+    if (tgToken) payload.telegram_token = tgToken;
+    if (tgChat) payload.telegram_chat_id = tgChat;
+    if (discordUrl) payload.discord_url = discordUrl;
+    if (slackUrl) payload.slack_url = slackUrl;
+    if (genericUrl) payload.generic_url = genericUrl;
+
+    try {
+      const res = await fetch("/api/settings/webhooks", {
+        method: "POST",
+        headers: Auth.getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert("Webhook channels updated successfully!");
+        this.loadWebhooks();
+      }
+    } catch (e) {
+      alert("Error saving webhooks: " + e.message);
+    }
+  },
+
+  async testWebhooks() {
+    try {
+      const res = await fetch("/api/settings/webhooks/test", {
+        method: "POST",
+        headers: Auth.getAuthHeaders()
+      });
+      if (res.ok) {
+        alert("Test notification sent! Check your Telegram/Discord/Slack channel.");
+      } else {
+        alert("Failed to send test notification.");
+      }
+    } catch (e) {
+      alert("Error: " + e.message);
     }
   }
 };

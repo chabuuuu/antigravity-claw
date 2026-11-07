@@ -4,7 +4,7 @@ services:
   openclaw:
     # Use pre-built GHCR image, or comment out 'image' and uncomment 'build' for local build
     image: ghcr.io/chabuuuu/antigravity-claw:latest
-    # build: .
+    build: .
     container_name: antigravity_openclaw
     restart: unless-stopped
     ports:
