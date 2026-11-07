@@ -110,3 +110,4 @@ class WebhookNotifier:
             logger.error("Failed to send Generic webhook notification: %s", e)
 
 notifier_instance = WebhookNotifier()
+

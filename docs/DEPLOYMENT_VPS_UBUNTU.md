@@ -129,3 +129,4 @@ journalctl -u antigravity-openclaw -f
 3. Choose a strong master username and password (at least 8 characters).
 4. Click **Create Administrator**.
 5. Once submitted, your credentials are saved, your signed session token is issued, and you gain access to your remote Antigravity studio!
+

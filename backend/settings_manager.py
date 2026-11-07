@@ -242,3 +242,4 @@ class SettingsManager:
             return False, str(e)
 
 settings_manager_instance = SettingsManager()
+

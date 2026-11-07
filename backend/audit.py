@@ -158,3 +158,4 @@ def query_audit_logs(
         "offset": offset,
         "logs": logs
     }
+

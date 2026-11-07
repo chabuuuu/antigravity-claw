@@ -171,3 +171,4 @@ document.getElementById("auth-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") Auth.handleSubmit();
 });
 document.getElementById("btn-logout").addEventListener("click", () => Auth.logout());
+

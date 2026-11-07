@@ -437,6 +437,96 @@ class WorkspaceGitHandler(BaseHandler):
         status = workspace_manager_instance.get_git_status()
         self.write(status)
 
+class WorkspaceGitDiffHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        data = workspace_manager_instance.get_git_diff()
+        self.write(data)
+
+class WorkspaceUploadHandler(BaseHandler):
+    @require_auth
+    def post(self):
+        rel_dir = self.get_argument("path", "")
+        if "file" not in self.request.files:
+            self.set_status(400)
+            self.finish({"error": "No file uploaded in multipart form."})
+            return
+            
+        file_info = self.request.files["file"][0]
+        filename = file_info["filename"]
+        body = file_info["body"]
+
+        success, msg = workspace_manager_instance.save_uploaded_file(
+            rel_dir, filename, body,
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        if not success:
+            self.set_status(400)
+            self.finish({"error": msg})
+            return
+        self.write({"success": True, "message": msg, "filename": filename})
+
+class WorkspaceDownloadHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        path = self.get_argument("path", "")
+        file_path = workspace_manager_instance.get_safe_file_path_for_download(path)
+        if not file_path:
+            self.set_status(404)
+            self.finish({"error": "File not found or access denied."})
+            return
+            
+        log_audit(
+            action=AuditAction.FILE_DOWNLOAD,
+            status="SUCCESS",
+            resource=path,
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        self.set_header("Content-Type", "application/octet-stream")
+        self.set_header("Content-Disposition", f'attachment; filename="{file_path.name}"')
+        self.write(file_path.read_bytes())
+
+class SettingsWebhooksHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        self.write({
+            "telegram_token_configured": bool(notifier_instance.telegram_token),
+            "telegram_chat_id": notifier_instance.telegram_chat_id,
+            "discord_url_configured": bool(notifier_instance.discord_url),
+            "slack_url_configured": bool(notifier_instance.slack_url),
+            "generic_url": notifier_instance.generic_url
+        })
+
+    @require_auth
+    def post(self):
+        data = self.json_body()
+        notifier_instance.update_config(data)
+        self.write({"success": True, "message": "Webhook settings updated."})
+
+class SettingsWebhookTestHandler(BaseHandler):
+    @require_auth
+    def post(self):
+        notifier_instance.notify(
+            title="Antigravity OpenClaw Test",
+            message="This is a test notification from your Antigravity OpenClaw instance on VPS.",
+            event_type="SUCCESS",
+            metadata={"user": self.current_user["username"]}
+        )
+        self.write({"success": True, "message": "Test notification dispatched."})
+
+class HealthCheckHandler(BaseHandler):
+    def get(self):
+        self.write({
+            "status": "healthy",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "uptime_seconds": int(time.time() - psutil.boot_time())
+        })
+
+
 # ================= TERMINAL CONTROLLERS =================
 
 class TerminalExecuteHandler(BaseHandler):
@@ -699,6 +789,9 @@ def make_app():
         (r"/app", tornado.web.StaticFileHandler, {"path": str(static_path), "default_filename": "index.html"}),
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": str(static_path)}),
         
+        # Health Check
+        (r"/api/health", HealthCheckHandler),
+
         # Auth Routes
         (r"/api/auth/status", AuthStatusHandler),
         (r"/api/auth/initial-setup", AuthInitialSetupHandler),
@@ -720,11 +813,16 @@ def make_app():
         (r"/api/settings/plugins", SettingsPluginsHandler),
         (r"/api/settings/rules", SettingsRulesHandler),
         (r"/api/settings/raw", SettingsRawHandler),
+        (r"/api/settings/webhooks", SettingsWebhooksHandler),
+        (r"/api/settings/webhooks/test", SettingsWebhookTestHandler),
         
         # Workspace Routes
         (r"/api/workspace/files", WorkspaceFilesHandler),
         (r"/api/workspace/file", WorkspaceFileContentHandler),
         (r"/api/workspace/git", WorkspaceGitHandler),
+        (r"/api/workspace/git/diff", WorkspaceGitDiffHandler),
+        (r"/api/workspace/upload", WorkspaceUploadHandler),
+        (r"/api/workspace/download", WorkspaceDownloadHandler),
         
         # Terminal Routes
         (r"/api/terminal/execute", TerminalExecuteHandler),

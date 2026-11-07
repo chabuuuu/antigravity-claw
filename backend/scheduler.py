@@ -168,3 +168,4 @@ class AutonomousScheduler:
             return cursor.rowcount > 0
 
 scheduler_instance = AutonomousScheduler()
+

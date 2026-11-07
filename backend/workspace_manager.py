@@ -211,4 +211,64 @@ class WorkspaceManager:
         except Exception as e:
             return {"is_git": True, "error": str(e)}
 
+    def get_git_diff(self) -> Dict[str, Any]:
+        """Queries git diff and recent commit logs."""
+        import subprocess
+        git_dir = self.root_dir / ".git"
+        if not git_dir.exists():
+            return {"is_git": False, "diff": "", "log": ""}
+
+        try:
+            diff_out = subprocess.check_output(
+                ["git", "diff"],
+                cwd=str(self.root_dir),
+                stderr=subprocess.DEVNULL
+            ).decode("utf-8", errors="replace").strip()
+
+            log_out = subprocess.check_output(
+                ["git", "log", "-n", "5", "--oneline"],
+                cwd=str(self.root_dir),
+                stderr=subprocess.DEVNULL
+            ).decode("utf-8", errors="replace").strip()
+
+            return {
+                "is_git": True,
+                "diff": diff_out or "(No uncommitted differences)",
+                "recent_commits": log_out.splitlines() if log_out else []
+            }
+        except Exception as e:
+            return {"is_git": True, "error": str(e)}
+
+    def save_uploaded_file(self, rel_dir: str, filename: str, content_bytes: bytes, user_id: Optional[int] = None, username: Optional[str] = None, ip_address: Optional[str] = None) -> Tuple[bool, str]:
+        """Saves an uploaded file safely within the workspace."""
+        clean_filename = Path(filename).name
+        target_dir = self._resolve_safe_path(rel_dir)
+        if not target_dir or not target_dir.is_dir():
+            return False, "Target directory invalid or outside workspace."
+
+        target_file = target_dir / clean_filename
+        try:
+            target_file.write_bytes(content_bytes)
+            log_audit(
+                action=AuditAction.FILE_UPLOAD,
+                status="SUCCESS",
+                resource=str(target_file.relative_to(self.root_dir)),
+                user_id=user_id,
+                username=username,
+                ip_address=ip_address,
+                details={"size_bytes": len(content_bytes)}
+            )
+            return True, "File uploaded successfully."
+        except Exception as e:
+            return False, str(e)
+
+    def get_safe_file_path_for_download(self, rel_path: str) -> Optional[Path]:
+        """Validates and returns absolute Path for safe download."""
+        target = self._resolve_safe_path(rel_path)
+        if target and target.is_file():
+            return target
+        return None
+
 workspace_manager_instance = WorkspaceManager()
+
+

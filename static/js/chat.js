@@ -373,3 +373,4 @@ const Chat = {
     container.scrollTop = container.scrollHeight;
   }
 };
+

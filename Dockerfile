@@ -27,3 +27,4 @@ ENV OPENCLAW_WORKSPACE=/workspace
 EXPOSE 8080
 
 CMD ["python3", "-m", "backend.app"]
+

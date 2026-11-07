@@ -3,73 +3,82 @@
 <div align="center">
 
 **Remote Autonomous Agent Studio for Google Antigravity (`agy`)**  
-*Một phần mềm mã nguồn mở biến VPS Linux Ubuntu thành trạm điều khiển Agent Antigravity từ xa qua giao diện web hiện đại như OpenClaw.*
+*An open-source, web-based control center transforming your Linux Ubuntu VPS into a 24/7 autonomous Antigravity agent studio with OpenClaw-grade UI, multi-layer security, and background automations.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Platform: Linux Ubuntu](https://img.shields.io/badge/platform-Ubuntu%20Linux-orange.svg)](https://ubuntu.com/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[English](#-english-overview) • [Tiếng Việt](#-tổng-quan-tiếng-việt) • [Documentation](./docs/ARCHITECTURE.md) • [VPS Deployment](./docs/DEPLOYMENT_VPS_UBUNTU.md)
+[Overview](#-overview) • [Key Features](#-key-features) • [Architecture](#-architecture) • [Quickstart](#-quickstart) • [VPS Deployment](#-production-deployment-on-ubuntu-vps) • [Documentation](#-documentation) • [Contributing](#-contributing)
 
 </div>
 
 ---
 
-## 🌟 Giới thiệu / Overview
+## 🌟 Overview
 
-**Antigravity OpenClaw** là nền tảng mã nguồn mở mang giao diện làm việc tự động (Autonomous Studio) chuẩn OpenClaw lên trên **Google Antigravity CLI (`agy`)**. 
+**Antigravity OpenClaw** bridges the power of the **Google Antigravity CLI (`agy`)** with an intuitive, modern, dark-themed web dashboard inspired by OpenClaw.
 
-Khi bạn cài đặt Antigravity lên VPS Linux Ubuntu riêng, **Antigravity OpenClaw** cung cấp cho bạn một giao diện web an toàn, phản hồi thời gian thực (real-time stream) để:
-- Điều khiển Antigravity thực hiện các task lập trình, sửa lỗi, review code từ bất kỳ thiết bị nào qua trình duyệt.
-- Tự động hóa tác vụ định kỳ (Cron / Scheduled Automations) khi bạn tắt máy.
-- Quản lý đầy đủ 100% cấu hình Antigravity: Models (Gemini 4 Argon, Gemini 3.8 Flash, Claude Sonnet), MCP Servers, Plugins, Rules (`GEMINI.md`).
-- Bảo mật nghiêm ngặt: Bắt buộc đăng nhập, chống tấn công brute-force, phân quyền và ghi vết kiểm toán (Audit Trail) bất biến.
+When installed on a self-hosted Ubuntu Linux VPS, it allows developers to:
+- **Dispatch coding tasks remotely** to Google Antigravity from any browser, tablet, or mobile phone.
+- **Stream reasoning and tool executions in real time** over WebSockets with zero lag.
+- **Automate routine workflows** (code reviews, testing, git synchronizations) using background cron schedules while you sleep.
+- **Inspect and edit remote files** directly in the browser with syntax highlighting, automatic backups, and Git diff tracking.
+- **Control 100% of Antigravity options**: Models (Gemini 4 Argon, Gemini 3.8 Flash, Claude Sonnet), MCP servers, plugins, and project rules (`GEMINI.md`).
+- **Enforce strict enterprise security**: Mandatory authentication, brute-force defense, and a tamper-evident audit trail recording all actions.
 
 ---
 
-## 🚀 Tính năng nổi bật / Key Features
+## 🚀 Key Features
 
-### 1. 💬 Trạm làm việc Agent trực tiếp với Antigravity CLI
-- Giao tiếp trực tiếp với `agy` bằng giao thức `--output-format stream-json`.
-- Stream từng token, hiển thị cây suy luận (Thinking / Reasoning accordion), thẻ thực thi công cụ (Tool Execution Cards) thời gian thực.
-- Đầy đủ thống kê Token: Input Tokens, Output Tokens, Thinking Tokens, thời gian xử lý.
-- Hỗ trợ đa phiên trò chuyện (Multi-turn conversations), tạm dừng / hủy bỏ tác vụ (Kill/Cancel).
+### 1. 💬 Real-Time Agent Workspace
+- **Direct CLI Communication**: Interfaces with `agy` using the native `--output-format stream-json` protocol.
+- **Live Token Streaming**: Token-by-token real-time output via WebSockets.
+- **Reasoning Process Accordion**: Collapsible thought blocks showing agent planning and thinking tokens.
+- **Tool Execution Cards**: Real-time visualization of tool calls (`run_command`, `edit_file`, MCP tools) showing parameters, status badges, and standard output.
+- **Token Telemetry**: Complete breakdown of input, output, and thinking tokens along with turn execution duration.
+- **Multi-Turn Sessions**: Conversation history persistence in SQLite; resume or stop running sessions anytime.
 
-### 2. ⚙️ Hỗ trợ 100% cấu hình của Antigravity trên UI
-- **Bộ chọn Models**: Tự động nhận diện danh sách model qua `agy models` (Gemini 4 Argon High/Med/Low, Gemini 3.8 Flash, Claude Opus/Sonnet 5.5).
-- **Reasoning Effort & Execution Mode**: Low, Medium, High, Max; Auto, Accept-Edits, Plan.
-- **Quản lý MCP Servers**: Liệt kê, thêm mới, gỡ bỏ, bật/tắt các công cụ MCP (`agy mcp list/add/remove`).
-- **Quản lý Plugins**: Bật/tắt, cài đặt các plugin Antigravity (`agy plugins list/enable/disable`).
-- **Chỉnh sửa Rules & Chỉ thị**: Trực tiếp biên tập `GEMINI.md` và `AGENTS.md` ngay trên web.
-- **Trình sửa Raw JSON**: Xem và sửa an toàn `~/.gemini/settings.json` và `config.json`.
+### 2. ⚙️ Complete Antigravity Configuration Suite
+- **Dynamic Model Selector**: Real-time discovery via `agy models` (Gemini 4 Argon High/Med/Low, Gemini 3.8 Flash, Claude Opus/Sonnet 5.5, GPT-OSS 120B).
+- **Reasoning Effort & Persona Modes**: Configurable depth (`low`, `medium`, `high`, `xhigh`, `max`) and execution modes (`auto`, `accept-edits`, `plan`).
+- **Model Context Protocol (MCP) Manager**: List, add, enable, disable, and remove external MCP servers directly on the UI (`agy mcp list/add/remove`).
+- **Plugin Management**: Inspect installed plugins, version numbers, components, and toggle availability (`agy plugins list/enable/disable`).
+- **Project Rules & Guidelines**: Directly view and edit `GEMINI.md` and `AGENTS.md` in the browser.
+- **Raw Configuration Editor**: Safe editor for `~/.gemini/settings.json` and `~/.gemini/config/config.json`.
 
-### 3. 📁 Quản lý File & Trình soạn thảo Code từ xa
-- Duyệt cây thư mục VPS thời gian thực.
-- Trình xem và soạn thảo code trực tiếp (Syntax-highlighted code editor) với tính năng lưu phím tắt `Ctrl + S`.
-- Cơ chế tự động sao lưu `.bak` trước khi lưu file.
-- Tích hợp Git: Hiển thị branch hiện tại và số file bị thay đổi (`git status`).
+### 3. 📁 Workspace Explorer & In-Browser Code Editor
+- **Tree Navigation**: Browse remote project directories with MIME-type icons and modification dates.
+- **Code Editor**: Edit and save files with `Ctrl + S`, featuring automatic `.bak` backup generation.
+- **File Transfer**: Upload files from your local machine to the VPS or download files from the VPS.
+- **Git Integration**: View active branch, uncommitted modifications count, and side-by-side `git diff` outputs.
 
 ### 4. 💻 VPS Web Terminal
-- Cửa sổ dòng lệnh Terminal trực tiếp trong trình duyệt để kiểm tra VPS.
-- Hỗ trợ màu sắc ANSI, lịch sử lệnh (Arrow Up/Down), ngắt tiến trình (Kill).
+- **Integrated Bash Session**: Execute Linux shell commands remotely without opening an SSH client.
+- **Terminal Capabilities**: Monospace ANSI color rendering, command history (Arrow Up/Down), clear screen, and interactive process termination (Kill switch).
 
-### 5. ⏱️ Tác vụ Tự hành (Autonomous Scheduler & Cron)
-- Lên lịch tác vụ định kỳ theo chuẩn Cron (vd: `*/30 * * * *`, `@daily`, `every 60 min`).
-- Chạy ngầm 24/7 trên VPS độc lập, tự động dispatch Antigravity làm task khi đến giờ.
-- Bắn thông báo Webhook về **Telegram**, **Discord**, **Slack**, hoặc Webhook tùy chỉnh khi hoàn thành hoặc có lỗi.
+### 5. ⏱️ Autonomous Scheduling & Multi-Channel Webhooks
+- **Cron Automations**: Define recurring jobs using standard cron syntax (e.g., `*/30 * * * *`, `@daily`, `every 60 min`).
+- **Unattended 24/7 Execution**: Evaluates schedules in a background daemon loop, launching Antigravity without requiring human interaction.
+- **Instant Webhooks**: Receive completion summaries, token metrics, or failure alerts via:
+  - **Telegram Bot** (`sendMessage` with Markdown formatting)
+  - **Discord Webhook** (rich embeds with task metadata)
+  - **Slack Webhook**
+  - **Generic HTTP Webhook** (JSON payload)
 
-### 6. 🛡️ Cơ chế Bảo mật Mạnh & Audit Logging
-- **Bắt buộc Đăng nhập**: Toàn bộ API và giao diện bị khóa nếu chưa chứng thực.
-- **Thiết lập Quản trị viên ban đầu (First-Run Wizard)**: Khi mới khởi tạo hệ thống, bạn sẽ tự đặt mật khẩu Admin đầu tiên, tuyệt đối không có mật khẩu mặc định (hardcoded).
-- **Mã hóa chuẩn công nghiệp**: Mật khẩu được băm bằng Bcrypt / PBKDF2 (600,000 vòng lặp) kết hợp Salt ngẫu nhiên. Token JWT có ký số mật mã HS256 và cơ chế thu hồi (Revocation).
-- **Chống Brute-force & Rate Limiting**: Tự động khóa IP 15 phút nếu nhập sai mật khẩu quá 5 lần.
-- **Chống Path Traversal**: Ngăn chặn tuyệt đối việc đọc/ghi các file nhạy cảm ngoài workspace (`/etc/passwd`, v.v.).
-- **Audit Trail Bất Biến**: Ghi lại toàn bộ hành động (Đăng nhập, chạy task, mở/sửa/xóa file, chạy terminal, đổi cấu hình) kèm IP, thời gian UTC, User Agent. Hỗ trợ tra cứu, lọc và xuất ra file CSV/JSON.
+### 6. 🛡️ Enterprise Security & Tamper-Evident Audit Trail
+- **Mandatory Authentication**: All REST API endpoints and WebSockets strictly reject unauthenticated requests.
+- **First-Run Master Setup Wizard**: On initial startup, the user sets their administrator credentials; no hardcoded default passwords exist.
+- **Cryptographic Hashing**: Passwords hashed with high-iteration Bcrypt or PBKDF2-HMAC-SHA256 (600,000 rounds) and unique salts.
+- **Cryptographic Session Tokens**: HS256-signed JWT tokens with server-side session revocation.
+- **Brute-Force & Rate Limiting**: 5 consecutive failed attempts locks out the client IP address for 15 minutes.
+- **Path Traversal Defense**: All file queries are validated against the canonical workspace boundary using `Path.relative_to()`.
+- **Append-Only Audit Log**: Every login, task dispatch, file edit, terminal command, and configuration change is recorded in an SQLite database with timestamp (UTC), username, client IP, action, resource, status, and details. Logs can be exported to **CSV** or **JSON**.
 
 ---
 
-## 🏗️ Kiến trúc Hệ thống / System Architecture
+## 🏗️ Architecture
 
 ```
 +-------------------------------------------------------------------------+
@@ -77,12 +86,13 @@ Khi bạn cài đặt Antigravity lên VPS Linux Ubuntu riêng, **Antigravity Op
 |  [💬 Chat]  [📁 Explorer]  [💻 Terminal]  [⚙️ Settings]  [📋 Audit]    |
 +-------------------------------------------------------------------------+
                                    ▲
-                                   │ WebSocket (/ws) & REST API
+                                   │ WebSocket (/ws) & HTTPS REST API
                                    ▼
 +-------------------------------------------------------------------------+
 |                    Ubuntu VPS: Nginx Reverse Proxy & SSL                |
 +-------------------------------------------------------------------------+
                                    ▲
+                                   │ Local Proxy
                                    ▼
 +-------------------------------------------------------------------------+
 |               Antigravity OpenClaw Engine (Python / Tornado)            |
@@ -105,51 +115,51 @@ Khi bạn cài đặt Antigravity lên VPS Linux Ubuntu riêng, **Antigravity Op
 
 ---
 
-## ⚡ Cài đặt Nhanh trên VPS / Quickstart
+## ⚡ Quickstart
 
-### Cách 1: Sử dụng Script Cài đặt Tự động (Khuyên dùng)
+### Option 1: Automated 1-Click Installer (Recommended for Ubuntu VPS)
 
-Chạy 3 lệnh sau trên VPS Ubuntu:
+Run the following commands on your Ubuntu VPS:
 
 ```bash
-# 1. Clone repository
+# 1. Clone the repository
 git clone https://github.com/<your-username>/antigravity-openclaw.git
 cd antigravity-openclaw
 
-# 2. Chạy script cài đặt
+# 2. Run the automated installer
 chmod +x install.sh
 ./install.sh
 
-# 3. Khởi động dịch vụ
+# 3. Start the systemd service
 sudo systemctl start antigravity-openclaw
 ```
 
-Bây giờ bạn có thể truy cập `http://<IP_VPS_CỦA_BẠN>:8080`. Trình duyệt sẽ mở **Wizard Tạo Tài Khoản Admin** cho lần đầu tiên.
+Open your browser and navigate to `http://<YOUR_VPS_IP>:8080`. On your first visit, the **Master Administrator Setup Wizard** will prompt you to create your credentials.
 
 ---
 
-### Cách 2: Chạy Thủ Công Không Dùng Root
+### Option 2: Manual Setup (No Root Required)
 
 ```bash
-# Tạo môi trường ảo Python
+# Create and activate Python virtual environment
 python3 -m venv venv
 source venv/bin/activate
 
-# Cài đặt thư viện
+# Install dependencies
 pip install -r requirements.txt
 
-# Khởi chạy server
+# Start the application
 ./start.sh
 ```
 
-Để dừng server:
+To stop the daemon:
 ```bash
 ./stop.sh
 ```
 
 ---
 
-### Cách 3: Chạy bằng Docker
+### Option 3: Docker Deployment
 
 ```bash
 docker compose up -d
@@ -157,49 +167,77 @@ docker compose up -d
 
 ---
 
-## 🌐 Thiết lập Tên miền & SSL HTTPS với Nginx
+## 🌐 Production Deployment on Ubuntu VPS
 
-Để truy cập từ xa an toàn qua HTTPS:
+For production environments, serve OpenClaw behind **Nginx** with **HTTPS (Let's Encrypt SSL)**:
 
-1. Trỏ Domain về IP VPS của bạn.
-2. Cài đặt Nginx & Certbot:
-   ```bash
-   sudo apt install -y nginx certbot python3-certbot-nginx
-   ```
-3. Áp dụng cấu hình Nginx mẫu:
-   ```bash
-   sudo cp nginx.conf.example /etc/nginx/sites-available/openclaw.conf
-   sudo nano /etc/nginx/sites-available/openclaw.conf  # Điền domain của bạn
-   sudo ln -s /etc/nginx/sites-available/openclaw.conf /etc/nginx/sites-enabled/
-   sudo nginx -t && sudo systemctl reload nginx
-   ```
-4. Cấp chứng chỉ SSL miễn phí:
-   ```bash
-   sudo certbot --nginx -d your-domain.com
-   ```
+### 1. Configure UFW Firewall
+```bash
+sudo ufw allow 22/tcp    # SSH
+sudo ufw allow 80/tcp    # HTTP (SSL challenges)
+sudo ufw allow 443/tcp   # HTTPS
+sudo ufw enable
+```
 
----
+### 2. Configure Nginx Reverse Proxy
+```bash
+sudo apt install -y nginx certbot python3-certbot-nginx
+sudo cp nginx.conf.example /etc/nginx/sites-available/openclaw.conf
+sudo nano /etc/nginx/sites-available/openclaw.conf  # Replace your-domain.com with your domain
+sudo ln -s /etc/nginx/sites-available/openclaw.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
 
-## 📚 Tài liệu Chi tiết / Detailed Documentation
+### 3. Generate Free SSL Certificate
+```bash
+sudo certbot --nginx -d your-domain.com
+```
 
-- [System Architecture & Internals](./docs/ARCHITECTURE.md): Kiến trúc chuyên sâu, cơ chế xử lý luồng dữ liệu.
-- [Ubuntu VPS Deployment Guide](./docs/DEPLOYMENT_VPS_UBUNTU.md): Hướng dẫn cấu hình Firewall UFW, Let's Encrypt, Systemd 24/7.
-- [Antigravity CLI Integration Guide](./docs/ANTIGRAVITY_INTEGRATION.md): Chi tiết giao thức `stream-json`, flags, MCP, Plugins.
-- [REST & WebSocket API Reference](./docs/API_REFERENCE.md): Danh mục API và WebSocket schema đầy đủ.
+### 4. Background Service Management (Systemd)
+```bash
+# Check service status
+sudo systemctl status antigravity-openclaw
 
----
+# Restart service
+sudo systemctl restart antigravity-openclaw
 
-## 🤝 Đóng góp cho Cộng đồng / Contributing
-
-Dự án này hoàn toàn mã nguồn mở và hướng tới cộng đồng lập trình viên Antigravity toàn cầu. Mọi đóng góp (Báo lỗi, đề xuất tính năng, cải thiện UI, thêm plugin mới) đều được hoan nghênh nhiệt liệt!
-
-Vui lòng xem:
-- [Quy tắc Đóng góp (CONTRIBUTING.md)](./CONTRIBUTING.md)
-- [Quy tắc Ứng xử (CODE_OF_CONDUCT.md)](./CODE_OF_CONDUCT.md)
-- [Chính sách Bảo mật (SECURITY.md)](./SECURITY.md)
+# View live application logs
+journalctl -u antigravity-openclaw -f
+```
 
 ---
 
-## 📄 Bản quyền / License
+## 📚 Documentation
 
-Dự án được phân phối dưới giấy phép **[MIT License](./LICENSE)**. Bạn hoàn toàn tự do sử dụng, chỉnh sửa, đóng góp và triển khai thương mại hoặc phi thương mại.
+Detailed documentation is available in the [`docs/`](./docs) directory:
+
+- [System Architecture & Internals](./docs/ARCHITECTURE.md) - Deep dive into core subsystems, security design, and data flows.
+- [Ubuntu VPS Deployment Guide](./docs/DEPLOYMENT_VPS_UBUNTU.md) - Step-by-step instructions for Nginx, SSL, UFW, and systemd.
+- [Antigravity CLI Integration Guide](./docs/ANTIGRAVITY_INTEGRATION.md) - Protocol analysis of `stream-json`, flags, tools, and subagents.
+- [REST & WebSocket API Reference](./docs/API_REFERENCE.md) - Complete endpoints specification and WebSocket event schemas.
+
+---
+
+## 🧪 Testing
+
+Run the automated test suite to verify authentication, audit logging, path traversal guards, and Antigravity model querying:
+
+```bash
+python3 tests/test_backend.py
+```
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from developers worldwide! Whether you want to improve UI components, add integrations, or fix bugs:
+
+1. Review our [Contributing Guidelines](CONTRIBUTING.md).
+2. Adhere to our [Code of Conduct](CODE_OF_CONDUCT.md).
+3. Report any security concerns according to our [Security Policy](SECURITY.md).
+
+---
+
+## 📄 License
+
+This project is licensed under the **[MIT License](LICENSE)**. You are free to use, modify, distribute, and integrate it into commercial or private workflows.

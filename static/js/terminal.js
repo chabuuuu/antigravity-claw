@@ -110,3 +110,4 @@ const Terminal = {
     out.innerText = "VPS Terminal Session\nReady.\n";
   }
 };
+

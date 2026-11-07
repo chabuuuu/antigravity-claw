@@ -173,3 +173,4 @@ def has_any_users() -> bool:
         cursor.execute("SELECT COUNT(*) as cnt FROM users;")
         row = cursor.fetchone()
         return row["cnt"] > 0
+

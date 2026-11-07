@@ -300,3 +300,4 @@ def require_auth(handler_func):
         self.current_user = payload
         return handler_func(self, *args, **kwargs)
     return wrapper
+

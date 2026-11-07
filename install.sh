@@ -99,3 +99,4 @@ echo "Access the dashboard in your browser:"
 echo "  http://<YOUR_VPS_IP>:8080"
 echo "On your first visit, you will be prompted to create your Admin credentials."
 echo "=========================================================="
+

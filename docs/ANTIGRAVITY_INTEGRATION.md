@@ -120,3 +120,4 @@ OpenClaw queries and manipulates Antigravity via subcommands:
 | **MCP Remove**| `agy mcp remove <name>` | Unregisters MCP server |
 | **Plugins** | `agy plugins list` | Discovers installed plugins & skills |
 | **Plugin Toggle** | `agy plugin enable/disable <name>` | Toggles plugin activity |
+

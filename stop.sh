@@ -21,3 +21,4 @@ if [ -n "$PIDS" ]; then
 else
     echo "ℹ️ No running Antigravity OpenClaw process found."
 fi
+

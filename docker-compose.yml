@@ -19,3 +19,4 @@ services:
       - OPENCLAW_PORT=8080
       - OPENCLAW_WORKSPACE=/workspace
       - AGY_BIN_PATH=/root/.gemini/bin/agy
+

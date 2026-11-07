@@ -188,3 +188,4 @@ class TerminalManager:
             return False
 
 terminal_manager_instance = TerminalManager()
+

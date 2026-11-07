@@ -18,3 +18,4 @@ if [ "$1" == "--daemon" ] || [ "$1" == "-d" ]; then
 else
     python3 -m backend.app
 fi
+

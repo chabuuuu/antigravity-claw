@@ -33,3 +33,4 @@ If you discover a security vulnerability in Antigravity OpenClaw, please **do no
 1. Send an email to the project maintainers with subject `[SECURITY] Vulnerability Report in OpenClaw`.
 2. Include detailed steps to reproduce the issue and potential impact.
 3. We will acknowledge receipt within 48 hours and work with you on a patch before public disclosure.
+

@@ -167,3 +167,4 @@ Connect to `/ws` over WebSocket or WSS:
 - `tool_call`: tool started or finished with parameters/output.
 - `agent_result`: turn finished with token usage and duration.
 - `task_completed`: overall process completed.
+
