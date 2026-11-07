@@ -126,9 +126,11 @@ const Settings = {
       }
 
       if (data.auth_url) {
-        // Open modal
-        if (window.Chat && typeof window.Chat.showAntigravityAuthModal === "function") {
-          window.Chat.showAntigravityAuthModal(data);
+        // Open in-app modal with authorization instructions and code submit button
+        if (typeof window.showAntigravityAuthModal === "function") {
+          window.showAntigravityAuthModal(data);
+        } else if (typeof Chat !== "undefined" && typeof Chat.showAntigravityAuthModal === "function") {
+          Chat.showAntigravityAuthModal(data);
         } else {
           window.open(data.auth_url, "_blank");
         }

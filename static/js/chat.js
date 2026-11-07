@@ -45,7 +45,11 @@ const Chat = {
 
     if (agyModalClose) {
       agyModalClose.addEventListener("click", () => {
-        document.getElementById("agy-auth-modal").style.display = "none";
+        const modal = document.getElementById("agy-auth-modal");
+        if (modal) {
+          modal.style.display = "none";
+          modal.classList.remove("active");
+        }
       });
     }
 
@@ -318,21 +322,26 @@ const Chat = {
     const link = document.getElementById("agy-auth-url-link");
     const statusMsg = document.getElementById("agy-auth-status-msg");
     const input = document.getElementById("agy-auth-code-input");
+    const submitBtn = document.getElementById("btn-agy-auth-submit");
 
     this.pendingAuthTaskId = event.task_id || this.activeTaskId;
     if (link && event.auth_url) {
       link.href = event.auth_url;
     }
     if (statusMsg) {
-      statusMsg.innerText = "Waiting for authorization code...";
+      statusMsg.innerText = "Follow Step 1 to open Google, then copy & paste the code into Step 2 below.";
       statusMsg.style.color = "var(--text-muted)";
     }
     if (input) {
       input.value = "";
     }
+    if (submitBtn) {
+      submitBtn.disabled = false;
+    }
     if (modal) {
       modal.style.display = "flex";
-      setTimeout(() => input && input.focus(), 100);
+      modal.classList.add("active");
+      setTimeout(() => input && input.focus(), 150);
     }
   },
 
@@ -340,9 +349,9 @@ const Chat = {
     const input = document.getElementById("agy-auth-code-input");
     const statusMsg = document.getElementById("agy-auth-status-msg");
     const submitBtn = document.getElementById("btn-agy-auth-submit");
-    const code = input ? input.value.trim() : "";
+    let rawInput = input ? input.value.trim() : "";
 
-    if (!code) {
+    if (!rawInput) {
       if (statusMsg) {
         statusMsg.innerText = "Please paste the authorization code first.";
         statusMsg.style.color = "var(--accent-red)";
@@ -350,8 +359,17 @@ const Chat = {
       return;
     }
 
+    // Smart extraction: if user pastes full callback URL, extract the code parameter
+    let code = rawInput;
+    if (rawInput.includes("code=")) {
+      const match = rawInput.match(/[?&]code=([^&]+)/);
+      if (match) {
+        code = decodeURIComponent(match[1]);
+      }
+    }
+
     if (statusMsg) {
-      statusMsg.innerText = "Submitting code to Antigravity CLI...";
+      statusMsg.innerText = "Submitting code to Antigravity CLI on VPS...";
       statusMsg.style.color = "var(--accent-blue)";
     }
     if (submitBtn) submitBtn.disabled = true;
@@ -377,17 +395,24 @@ const Chat = {
       const data = await res.json();
       if (res.ok && data.success) {
         if (statusMsg) {
-          statusMsg.innerText = "✅ Authorization submitted! Processing task...";
+          statusMsg.innerText = "✅ Authorization submitted! Antigravity is now logged in.";
           statusMsg.style.color = "#3fb950";
+        }
+        // Refresh auth status in settings if available
+        if (typeof Settings !== "undefined" && typeof Settings.loadAuthStatus === "function") {
+          Settings.loadAuthStatus();
         }
         setTimeout(() => {
           const modal = document.getElementById("agy-auth-modal");
-          if (modal) modal.style.display = "none";
+          if (modal) {
+            modal.style.display = "none";
+            modal.classList.remove("active");
+          }
           if (submitBtn) submitBtn.disabled = false;
         }, 1200);
       } else {
         if (statusMsg) {
-          statusMsg.innerText = data.error || "Failed to submit code. Try again.";
+          statusMsg.innerText = data.error || "Failed to submit code. Please try again.";
           statusMsg.style.color = "var(--accent-red)";
         }
         if (submitBtn) submitBtn.disabled = false;
@@ -492,4 +517,7 @@ const Chat = {
     container.scrollTop = container.scrollHeight;
   }
 };
+
+window.Chat = Chat;
+window.showAntigravityAuthModal = (data) => Chat.showAntigravityAuthModal(data);
 
