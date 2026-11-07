@@ -1,0 +1,770 @@
+"""
+Main Web Server & REST/WebSocket API Application for Antigravity OpenClaw.
+Built with Tornado for ultra-fast async execution, WebSockets, and zero bloat.
+"""
+
+import asyncio
+import csv
+import io
+import json
+import logging
+import os
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional, Dict, Any
+
+import psutil
+import tornado.web
+import tornado.websocket
+import tornado.ioloop
+
+from backend.config import (
+    HOST, PORT, DEBUG, BASE_DIR, COOKIE_NAME, DEFAULT_WORKSPACE, AGY_BIN_PATH
+)
+from backend.database import init_db, has_any_users, get_db_connection
+from backend.auth import (
+    authenticate_user, create_admin_user, revoke_token, verify_token, require_auth
+)
+from backend.audit import log_audit, query_audit_logs, AuditAction
+from backend.antigravity_runner import runner_instance
+from backend.settings_manager import settings_manager_instance
+from backend.workspace_manager import workspace_manager_instance
+from backend.terminal_manager import terminal_manager_instance
+from backend.scheduler import scheduler_instance
+from backend.webhook_notifier import notifier_instance
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger("openclaw.server")
+
+class BaseHandler(tornado.web.RequestHandler):
+    """Base handler with JSON helpers, CORS, and request security context."""
+    def set_default_headers(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        self.set_header("X-Content-Type-Options", "nosniff")
+        self.set_header("X-Frame-Options", "DENY")
+        self.set_header("X-XSS-Protection", "1; mode=block")
+
+    def options(self, *args, **kwargs):
+        self.set_status(204)
+        self.finish()
+
+    def get_client_ip(self) -> str:
+        x_forwarded = self.request.headers.get("X-Forwarded-For")
+        if x_forwarded:
+            return x_forwarded.split(",")[0].strip()
+        return self.request.remote_ip or "127.0.0.1"
+
+    def get_user_agent(self) -> str:
+        return self.request.headers.get("User-Agent", "Unknown")
+
+    def json_body(self) -> Dict[str, Any]:
+        try:
+            if self.request.body:
+                return json.loads(self.request.body.decode("utf-8"))
+        except Exception:
+            pass
+        return {}
+
+    def get_current_user_payload(self) -> Optional[Dict[str, Any]]:
+        auth_header = self.request.headers.get("Authorization", "")
+        token = None
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+        else:
+            token = self.get_cookie(COOKIE_NAME)
+        if token:
+            return verify_token(token)
+        return None
+
+# ================= AUTH CONTROLLERS =================
+
+class AuthStatusHandler(BaseHandler):
+    def get(self):
+        has_admin = has_any_users()
+        user_payload = self.get_current_user_payload()
+        self.write({
+            "setup_required": not has_admin,
+            "authenticated": user_payload is not None,
+            "user": {
+                "id": user_payload["sub"],
+                "username": user_payload["username"],
+                "role": user_payload["role"]
+            } if user_payload else None
+        })
+
+class AuthInitialSetupHandler(BaseHandler):
+    def post(self):
+        if has_any_users():
+            self.set_status(400)
+            self.finish({"error": "Administrator already configured. Initial setup is closed."})
+            return
+            
+        data = self.json_body()
+        username = data.get("username", "").strip()
+        password = data.get("password", "")
+        
+        success, msg = create_admin_user(username, password, self.get_client_ip())
+        if not success:
+            self.set_status(400)
+            self.finish({"error": msg})
+            return
+            
+        token, user_dict, err = authenticate_user(username, password, self.get_client_ip(), self.get_user_agent())
+        self.set_cookie(COOKIE_NAME, token, httponly=True, samesite="Strict", expires_days=3)
+        self.write({"success": True, "token": token, "user": user_dict})
+
+class AuthLoginHandler(BaseHandler):
+    def post(self):
+        data = self.json_body()
+        username = data.get("username", "").strip()
+        password = data.get("password", "")
+        
+        token, user_dict, error_msg = authenticate_user(
+            username, password, self.get_client_ip(), self.get_user_agent()
+        )
+        if error_msg:
+            self.set_status(401 if "attempts" not in error_msg else 429)
+            self.finish({"error": error_msg})
+            return
+            
+        self.set_cookie(COOKIE_NAME, token, httponly=True, samesite="Strict", expires_days=3)
+        self.write({"success": True, "token": token, "user": user_dict})
+
+class AuthLogoutHandler(BaseHandler):
+    @require_auth
+    def post(self):
+        token = self.get_cookie(COOKIE_NAME)
+        if not token:
+            auth_header = self.request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:].strip()
+        if token:
+            revoke_token(token)
+            
+        self.clear_cookie(COOKIE_NAME)
+        log_audit(
+            action=AuditAction.AUTH_LOGOUT,
+            status="SUCCESS",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip(),
+            user_agent=self.get_user_agent()
+        )
+        self.write({"success": True, "message": "Logged out successfully."})
+
+class AuthMeHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        self.write({"user": self.current_user})
+
+# ================= AGENT CONTROLLERS =================
+
+class AgentPromptHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        prompt = data.get("prompt", "").strip()
+        if not prompt:
+            self.set_status(400)
+            self.finish({"error": "Prompt cannot be empty."})
+            return
+            
+        conv_id = data.get("conversation_id")
+        model = data.get("model")
+        effort = data.get("effort", "medium")
+        mode = data.get("mode", "auto")
+        auto_approve = bool(data.get("auto_approve", True))
+        sandbox = bool(data.get("sandbox", False))
+        agent = data.get("agent")
+        
+        user_id = int(self.current_user["sub"])
+        username = self.current_user["username"]
+        
+        task_id = await runner_instance.run_prompt(
+            prompt=prompt,
+            conversation_id=conv_id,
+            model=model,
+            effort=effort,
+            mode=mode,
+            auto_approve=auto_approve,
+            sandbox=sandbox,
+            agent=agent,
+            user_id=user_id,
+            username=username,
+            ip_address=self.get_client_ip()
+        )
+        
+        self.write({
+            "task_id": task_id,
+            "status": "RUNNING",
+            "conversation_id": conv_id or task_id
+        })
+
+class AgentCancelHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        task_id = data.get("task_id", "")
+        success = await runner_instance.cancel_task(
+            task_id,
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        self.write({"success": success})
+
+class AgentTasksHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM tasks ORDER BY id DESC LIMIT 50;")
+            tasks = [dict(r) for r in cursor.fetchall()]
+        self.write({"tasks": tasks})
+
+class AgentConversationsHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM conversations ORDER BY updated_at DESC LIMIT 50;")
+            convs = [dict(r) for r in cursor.fetchall()]
+        self.write({"conversations": convs})
+
+class AgentConversationDetailHandler(BaseHandler):
+    @require_auth
+    def get(self, conv_id: str):
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM conversations WHERE conversation_id = ?;", (conv_id,))
+            conv = cursor.fetchone()
+            if not conv:
+                self.set_status(404)
+                self.finish({"error": "Conversation not found."})
+                return
+                
+            cursor.execute("SELECT * FROM conversation_messages WHERE conversation_id = ? ORDER BY id ASC;", (conv_id,))
+            messages = [dict(r) for r in cursor.fetchall()]
+            
+        self.write({
+            "conversation": dict(conv),
+            "messages": messages
+        })
+
+# ================= SETTINGS CONTROLLERS =================
+
+class SettingsModelsHandler(BaseHandler):
+    @require_auth
+    async def get(self):
+        models = await settings_manager_instance.get_models()
+        self.write({"models": models})
+
+class SettingsAgentsHandler(BaseHandler):
+    @require_auth
+    async def get(self):
+        agents = await settings_manager_instance.get_agents()
+        self.write({"agents": agents})
+
+class SettingsMcpHandler(BaseHandler):
+    @require_auth
+    async def get(self):
+        servers = await settings_manager_instance.get_mcp_servers()
+        self.write({"mcp_servers": servers})
+
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        action = data.get("action", "")
+        name = data.get("name", "")
+        mcp_type = data.get("type", "stdio")
+        cmd = data.get("command", "")
+        
+        success, msg = await settings_manager_instance.modify_mcp(action, name, mcp_type, cmd)
+        log_audit(
+            action=AuditAction.MCP_MODIFY,
+            status="SUCCESS" if success else "FAILURE",
+            resource=f"mcp:{name}",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip(),
+            details={"action": action, "output": msg}
+        )
+        self.write({"success": success, "message": msg})
+
+class SettingsPluginsHandler(BaseHandler):
+    @require_auth
+    async def get(self):
+        plugins = await settings_manager_instance.get_plugins()
+        self.write({"plugins": plugins})
+
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        action = data.get("action", "")
+        name = data.get("name", "")
+        
+        success, msg = await settings_manager_instance.modify_plugin(action, name)
+        log_audit(
+            action=AuditAction.PLUGIN_MODIFY,
+            status="SUCCESS" if success else "FAILURE",
+            resource=f"plugin:{name}",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip(),
+            details={"action": action, "output": msg}
+        )
+        self.write({"success": success, "message": msg})
+
+class SettingsRulesHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        rules = settings_manager_instance.get_rules()
+        self.write({"rules": rules})
+
+    @require_auth
+    def post(self):
+        data = self.json_body()
+        filename = data.get("filename", "")
+        content = data.get("content", "")
+        success, msg = settings_manager_instance.save_rules(filename, content)
+        log_audit(
+            action=AuditAction.RULES_UPDATE,
+            status="SUCCESS" if success else "FAILURE",
+            resource=filename,
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        self.write({"success": success, "message": msg})
+
+class SettingsRawHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        data = settings_manager_instance.get_raw_settings()
+        self.write(data)
+
+    @require_auth
+    def post(self):
+        data = self.json_body()
+        settings = data.get("settings")
+        config = data.get("config")
+        success, msg = settings_manager_instance.save_raw_settings(settings, config)
+        log_audit(
+            action=AuditAction.SETTINGS_UPDATE,
+            status="SUCCESS" if success else "FAILURE",
+            resource="raw_settings",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        self.write({"success": success, "message": msg})
+
+# ================= WORKSPACE CONTROLLERS =================
+
+class WorkspaceFilesHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        path = self.get_argument("path", "")
+        success, result = workspace_manager_instance.list_directory(path)
+        if not success:
+            self.set_status(400)
+            self.finish({"error": result})
+            return
+        self.write(result)
+
+class WorkspaceFileContentHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        path = self.get_argument("path", "")
+        success, result = workspace_manager_instance.read_file(path)
+        if not success:
+            self.set_status(400)
+            self.finish({"error": result})
+            return
+        log_audit(
+            action=AuditAction.FILE_READ,
+            status="SUCCESS",
+            resource=path,
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        self.write(result)
+
+    @require_auth
+    def post(self):
+        data = self.json_body()
+        path = data.get("path", "")
+        content = data.get("content", "")
+        success, msg = workspace_manager_instance.write_file(
+            path, content,
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        if not success:
+            self.set_status(400)
+            self.finish({"error": msg})
+            return
+        self.write({"success": True, "message": msg})
+
+    @require_auth
+    def delete(self):
+        data = self.json_body()
+        path = data.get("path", "")
+        success, msg = workspace_manager_instance.delete_item(
+            path,
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        if not success:
+            self.set_status(400)
+            self.finish({"error": msg})
+            return
+        self.write({"success": True, "message": msg})
+
+class WorkspaceGitHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        status = workspace_manager_instance.get_git_status()
+        self.write(status)
+
+# ================= TERMINAL CONTROLLERS =================
+
+class TerminalExecuteHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        command = data.get("command", "").strip()
+        cwd = data.get("cwd")
+        if not command:
+            self.set_status(400)
+            self.finish({"error": "Command cannot be empty."})
+            return
+            
+        command_id = await terminal_manager_instance.execute_command(
+            command, cwd=cwd,
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        self.write({"command_id": command_id, "status": "RUNNING"})
+
+class TerminalKillHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        cmd_id = data.get("command_id", "")
+        success = await terminal_manager_instance.kill_command(
+            cmd_id,
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        self.write({"success": success})
+
+class TerminalHistoryHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        self.write({"history": terminal_manager_instance.command_history})
+
+# ================= SCHEDULES CONTROLLERS =================
+
+class SchedulesHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        schedules = scheduler_instance.list_schedules()
+        self.write({"schedules": schedules})
+
+    @require_auth
+    def post(self):
+        data = self.json_body()
+        name = data.get("name", "").strip()
+        cron_expr = data.get("cron_expr", "").strip()
+        prompt = data.get("prompt", "").strip()
+        model = data.get("model", "")
+        effort = data.get("effort", "medium")
+        mode = data.get("mode", "auto")
+        notify = bool(data.get("webhook_notify", True))
+        
+        if not name or not cron_expr or not prompt:
+            self.set_status(400)
+            self.finish({"error": "Name, cron expression, and prompt are required."})
+            return
+            
+        schedule_id = scheduler_instance.create_schedule(name, cron_expr, prompt, model, effort, mode, notify)
+        log_audit(
+            action=AuditAction.SCHEDULE_CREATE,
+            status="SUCCESS",
+            resource=f"schedule:{schedule_id}",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip(),
+            details={"name": name, "cron": cron_expr}
+        )
+        self.write({"success": True, "id": schedule_id})
+
+class ScheduleDetailHandler(BaseHandler):
+    @require_auth
+    def delete(self, schedule_id: str):
+        success = scheduler_instance.delete_schedule(int(schedule_id))
+        log_audit(
+            action=AuditAction.SCHEDULE_DELETE,
+            status="SUCCESS" if success else "FAILURE",
+            resource=f"schedule:{schedule_id}",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        self.write({"success": success})
+
+class ScheduleToggleHandler(BaseHandler):
+    @require_auth
+    def post(self, schedule_id: str):
+        data = self.json_body()
+        active = bool(data.get("active", True))
+        success = scheduler_instance.toggle_schedule(int(schedule_id), active)
+        self.write({"success": success})
+
+# ================= AUDIT LOGS CONTROLLERS =================
+
+class AuditLogsHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        limit = min(int(self.get_argument("limit", 100)), 500)
+        offset = int(self.get_argument("offset", 0))
+        action = self.get_argument("action", None)
+        username = self.get_argument("username", None)
+        status = self.get_argument("status", None)
+        search = self.get_argument("search", None)
+        
+        results = query_audit_logs(
+            limit=limit, offset=offset, action=action,
+            username=username, status=status, search=search
+        )
+        self.write(results)
+
+class AuditExportHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        export_format = self.get_argument("format", "csv").lower()
+        results = query_audit_logs(limit=2000, offset=0)
+        logs = results.get("logs", [])
+        
+        if export_format == "json":
+            self.set_header("Content-Type", "application/json")
+            self.set_header("Content-Disposition", f"attachment; filename=openclaw_audit_{int(time.time())}.json")
+            self.write(json.dumps(logs, indent=2))
+        else:
+            self.set_header("Content-Type", "text/csv")
+            self.set_header("Content-Disposition", f"attachment; filename=openclaw_audit_{int(time.time())}.csv")
+            output = io.StringIO()
+            writer = csv.writer(output)
+            writer.writerow(["ID", "Timestamp (UTC)", "Username", "IP Address", "Action", "Resource", "Status", "Details"])
+            for row in logs:
+                writer.writerow([
+                    row["id"], row["timestamp"], row["username"], row["ip_address"],
+                    row["action"], row["resource"], row["status"], json.dumps(row["details"])
+                ])
+            self.write(output.getvalue())
+
+# ================= SYSTEM STATUS CONTROLLER =================
+
+class SystemStatusHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        cpu_pct = psutil.cpu_percent(interval=None)
+        mem = psutil.virtual_memory()
+        disk = psutil.disk_usage("/")
+        boot_time = datetime.fromtimestamp(psutil.boot_time(), timezone.utc).isoformat()
+        
+        self.write({
+            "cpu_percent": cpu_pct,
+            "memory": {
+                "total_mb": round(mem.total / (1024 * 1024)),
+                "used_mb": round(mem.used / (1024 * 1024)),
+                "percent": mem.percent
+            },
+            "disk": {
+                "total_gb": round(disk.total / (1024 * 1024 * 1024), 1),
+                "used_gb": round(disk.used / (1024 * 1024 * 1024), 1),
+                "free_gb": round(disk.free / (1024 * 1024 * 1024), 1),
+                "percent": disk.percent
+            },
+            "boot_time": boot_time,
+            "agy_binary": AGY_BIN_PATH,
+            "workspace_root": str(DEFAULT_WORKSPACE)
+        })
+
+# ================= WEBSOCKET STREAMING CONTROLLER =================
+
+class StreamWebSocketHandler(tornado.websocket.WebSocketHandler):
+    def check_origin(self, origin):
+        return True
+
+    def open(self):
+        self.authenticated = False
+        self.user_payload = None
+        self.subscribed_tasks = set()
+        self.subscribed_commands = set()
+        
+        # Authenticate via cookie or initial token query param
+        token = self.get_cookie(COOKIE_NAME) or self.get_argument("token", None)
+        if token:
+            payload = verify_token(token)
+            if payload:
+                self.authenticated = True
+                self.user_payload = payload
+                self.write_message(json.dumps({"type": "auth_ok", "username": payload["username"]}))
+                return
+
+        # If not authenticated yet, wait for 'auth' message
+        self.write_message(json.dumps({"type": "auth_required"}))
+
+    def on_message(self, message):
+        try:
+            data = json.loads(message)
+            msg_type = data.get("action") or data.get("type")
+
+            if msg_type == "auth":
+                token = data.get("token")
+                payload = verify_token(token) if token else None
+                if payload:
+                    self.authenticated = True
+                    self.user_payload = payload
+                    self.write_message(json.dumps({"type": "auth_ok", "username": payload["username"]}))
+                else:
+                    self.write_message(json.dumps({"type": "auth_failed", "error": "Invalid token."}))
+                    self.close(1008, "Unauthorized")
+                return
+
+            if not self.authenticated:
+                self.write_message(json.dumps({"type": "error", "message": "Authentication required."}))
+                return
+
+            if msg_type == "subscribe_task":
+                task_id = data.get("task_id")
+                if task_id:
+                    self.subscribed_tasks.add(task_id)
+                    runner_instance.subscribe(task_id, self._send_task_event)
+                    self.write_message(json.dumps({"type": "subscribed", "task_id": task_id}))
+
+            elif msg_type == "unsubscribe_task":
+                task_id = data.get("task_id")
+                if task_id in self.subscribed_tasks:
+                    self.subscribed_tasks.discard(task_id)
+                    runner_instance.unsubscribe(task_id, self._send_task_event)
+
+            elif msg_type == "subscribe_terminal":
+                command_id = data.get("command_id")
+                if command_id:
+                    self.subscribed_commands.add(command_id)
+                    terminal_manager_instance.subscribe(command_id, self._send_terminal_event)
+                    self.write_message(json.dumps({"type": "subscribed_terminal", "command_id": command_id}))
+
+        except Exception as e:
+            logger.error("WebSocket message handling error: %s", e)
+
+    def _send_task_event(self, event: Dict[str, Any]):
+        try:
+            self.write_message(json.dumps(event))
+        except Exception:
+            pass
+
+    def _send_terminal_event(self, event: Dict[str, Any]):
+        try:
+            self.write_message(json.dumps(event))
+        except Exception:
+            pass
+
+    def on_close(self):
+        for task_id in self.subscribed_tasks:
+            runner_instance.unsubscribe(task_id, self._send_task_event)
+        for cmd_id in self.subscribed_commands:
+            terminal_manager_instance.unsubscribe(cmd_id, self._send_terminal_event)
+
+def make_app():
+    static_path = BASE_DIR / "static"
+    return tornado.web.Application([
+        # Frontend Entry
+        (r"/", tornado.web.RedirectHandler, {"url": "/app"}),
+        (r"/app", tornado.web.StaticFileHandler, {"path": str(static_path), "default_filename": "index.html"}),
+        (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": str(static_path)}),
+        
+        # Auth Routes
+        (r"/api/auth/status", AuthStatusHandler),
+        (r"/api/auth/initial-setup", AuthInitialSetupHandler),
+        (r"/api/auth/login", AuthLoginHandler),
+        (r"/api/auth/logout", AuthLogoutHandler),
+        (r"/api/auth/me", AuthMeHandler),
+        
+        # Agent Task Routes
+        (r"/api/agent/prompt", AgentPromptHandler),
+        (r"/api/agent/cancel", AgentCancelHandler),
+        (r"/api/agent/tasks", AgentTasksHandler),
+        (r"/api/agent/conversations", AgentConversationsHandler),
+        (r"/api/agent/conversations/([^/]+)", AgentConversationDetailHandler),
+        
+        # Antigravity Settings Routes
+        (r"/api/settings/models", SettingsModelsHandler),
+        (r"/api/settings/agents", SettingsAgentsHandler),
+        (r"/api/settings/mcp", SettingsMcpHandler),
+        (r"/api/settings/plugins", SettingsPluginsHandler),
+        (r"/api/settings/rules", SettingsRulesHandler),
+        (r"/api/settings/raw", SettingsRawHandler),
+        
+        # Workspace Routes
+        (r"/api/workspace/files", WorkspaceFilesHandler),
+        (r"/api/workspace/file", WorkspaceFileContentHandler),
+        (r"/api/workspace/git", WorkspaceGitHandler),
+        
+        # Terminal Routes
+        (r"/api/terminal/execute", TerminalExecuteHandler),
+        (r"/api/terminal/kill", TerminalKillHandler),
+        (r"/api/terminal/history", TerminalHistoryHandler),
+        
+        # Schedules Routes
+        (r"/api/schedules", SchedulesHandler),
+        (r"/api/schedules/([^/]+)", ScheduleDetailHandler),
+        (r"/api/schedules/([^/]+)/toggle", ScheduleToggleHandler),
+        
+        # Security Audit Routes
+        (r"/api/audit/logs", AuditLogsHandler),
+        (r"/api/audit/export", AuditExportHandler),
+        
+        # System Metrics
+        (r"/api/system/status", SystemStatusHandler),
+        
+        # WebSocket Streaming
+        (r"/ws", StreamWebSocketHandler),
+    ], debug=DEBUG, cookie_secret=os.urandom(32))
+
+def main():
+    init_db()
+    scheduler_instance.start()
+    
+    app = make_app()
+    app.listen(PORT, address=HOST)
+    logger.info("=================================================================")
+    logger.info("🚀 Antigravity OpenClaw Server started on http://%s:%d", HOST, PORT)
+    logger.info("📁 Workspace Root: %s", DEFAULT_WORKSPACE)
+    logger.info("🤖 Antigravity CLI binary: %s", AGY_BIN_PATH)
+    logger.info("🛡️ Mandatory Authentication & Security Audit: ENABLED")
+    logger.info("=================================================================")
+    
+    try:
+        tornado.ioloop.IOLoop.current().start()
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Shutting down Antigravity OpenClaw...")
+        scheduler_instance.stop()
+
+if __name__ == "__main__":
+    main()

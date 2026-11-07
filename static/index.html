@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw - Antigravity Remote Studio</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦅</text></svg>">
+</head>
+<body>
+  <!-- Full Screen Auth Modal (Mandatory Login / Initial Setup) -->
+  <div id="auth-modal" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <span id="auth-modal-title">Sign In to Antigravity OpenClaw</span>
+      </div>
+      <div class="modal-body">
+        <div id="auth-alert" class="alert-box"></div>
+        <div id="setup-banner" style="display: none; background: rgba(56, 139, 253, 0.15); border: 1px solid var(--accent-blue); padding: 10px; border-radius: 6px; font-size: 12px; color: #a5d6ff;">
+          👋 <strong>Welcome to Antigravity OpenClaw!</strong><br>
+          No administrator user has been configured yet. Please create your master credentials below.
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="auth-username">Username</label>
+          <input type="text" id="auth-username" class="form-input" placeholder="admin" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="auth-password">Password</label>
+          <input type="password" id="auth-password" class="form-input" placeholder="••••••••••••" autocomplete="current-password">
+        </div>
+        <div id="setup-confirm-group" class="form-group" style="display: none;">
+          <label class="form-label" for="auth-password-confirm">Confirm Password</label>
+          <input type="password" id="auth-password-confirm" class="form-input" placeholder="••••••••••••" autocomplete="new-password">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-auth-submit" class="btn-primary">Sign In</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App Layout -->
+  <div id="app-container">
+    <!-- Left Sidebar -->
+    <aside id="sidebar">
+      <div class="brand-header">
+        <div class="brand-logo">🦅</div>
+        <div class="brand-text">
+          <h1>OpenClaw</h1>
+          <span class="brand-badge">Antigravity</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="nav-menu">
+        <div class="nav-item active" data-view="chat">
+          <span class="icon">💬</span>
+          <span>Agent Workspace</span>
+        </div>
+        <div class="nav-item" data-view="workspace">
+          <span class="icon">📁</span>
+          <span>Files & Editor</span>
+        </div>
+        <div class="nav-item" data-view="terminal">
+          <span class="icon">💻</span>
+          <span>VPS Terminal</span>
+        </div>
+        <div class="nav-item" data-view="settings">
+          <span class="icon">⚙️</span>
+          <span>Antigravity Config</span>
+        </div>
+        <div class="nav-item" data-view="schedules">
+          <span class="icon">⏱️</span>
+          <span>Automations</span>
+        </div>
+        <div class="nav-item" data-view="audit">
+          <span class="icon">📋</span>
+          <span>Security Audit</span>
+        </div>
+      </nav>
+
+      <!-- Conversations History -->
+      <div class="conversations-section">
+        <div class="section-title">
+          <span>Recent Sessions</span>
+          <button id="btn-new-session" class="btn-new-chat">+ New</button>
+        </div>
+        <div id="conversations-list" class="conversations-list">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Sidebar Footer (System Metrics & User Profile) -->
+      <div class="sidebar-footer">
+        <div class="vps-metrics">
+          <div class="metric-item">
+            <span class="metric-label">CPU</span>
+            <span id="metric-cpu" class="metric-value">0%</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">RAM</span>
+            <span id="metric-ram" class="metric-value">0%</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">DISK</span>
+            <span id="metric-disk" class="metric-value">0%</span>
+          </div>
+        </div>
+
+        <div class="user-profile">
+          <div class="user-info">
+            <div id="user-avatar" class="user-avatar">A</div>
+            <span id="user-display-name" class="user-name">Admin</span>
+          </div>
+          <button id="btn-logout" class="btn-logout" title="Sign Out">Logout</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main id="main-content">
+      <!-- Top Navbar -->
+      <header class="top-navbar">
+        <div class="nav-left-info">
+          <span class="workspace-pill" id="current-workspace-pill">Workspace: /...</span>
+          <span id="git-status-pill" class="workspace-pill" style="display:none; color: var(--accent-green);">Git: main</span>
+        </div>
+        <div class="ws-status-badge">
+          <span id="ws-dot" class="status-dot"></span>
+          <span id="ws-status-text">Connected</span>
+        </div>
+      </header>
+
+      <!-- VIEW 1: AGENT WORKSPACE / CHAT -->
+      <div id="view-chat" class="view-panel active">
+        <div class="chat-container">
+          <div id="chat-messages" class="chat-messages">
+            <!-- Messages, Reasoning boxes, and Tool execution cards appear here -->
+            <div class="message-bubble assistant-message">
+              <div class="message-avatar">🦅</div>
+              <div class="message-body">
+                <h3>Welcome to OpenClaw for Antigravity</h3>
+                <p>I am your autonomous remote agent connected directly to <code>agy</code> CLI on this VPS. You can give me development tasks, shell commands, codebase edits, or autonomous background jobs.</p>
+                <p style="margin-top: 8px; font-size: 12px; color: var(--text-muted);">Configure models, reasoning effort, and modes below. Output is streamed live from Antigravity in real-time.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Prompt Input Area -->
+          <div class="chat-input-wrapper">
+            <div class="chat-controls-bar">
+              <div class="control-group">
+                <span class="control-label">Model:</span>
+                <select id="chat-model-select" class="select-control">
+                  <option value="gemini-4-argon-high">Gemini 4 Argon (High)</option>
+                  <option value="gemini-4-argon-medium">Gemini 4 Argon (Medium)</option>
+                  <option value="gemini-3.8-flash-high" selected>Gemini 3.8 Flash (High)</option>
+                  <option value="claude-opus-5-5-high">Claude Opus 5.5 (High)</option>
+                  <option value="claude-sonnet-5-5-high">Claude Sonnet 5.5 (High)</option>
+                </select>
+              </div>
+
+              <div class="control-group">
+                <span class="control-label">Effort:</span>
+                <select id="chat-effort-select" class="select-control">
+                  <option value="low">Low</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="high">High</option>
+                  <option value="xhigh">X-High</option>
+                  <option value="max">Max</option>
+                </select>
+              </div>
+
+              <div class="control-group">
+                <span class="control-label">Mode:</span>
+                <select id="chat-mode-select" class="select-control">
+                  <option value="auto" selected>Auto</option>
+                  <option value="accept-edits">Accept Edits</option>
+                  <option value="plan">Plan</option>
+                </select>
+              </div>
+
+              <label class="checkbox-label" title="Skip interactive tool confirmations for full autonomy">
+                <input type="checkbox" id="chat-auto-approve" checked>
+                <span>Autonomous Mode (Auto-proceed)</span>
+              </label>
+
+              <label class="checkbox-label" title="Run in restricted terminal sandbox">
+                <input type="checkbox" id="chat-sandbox">
+                <span>Sandbox</span>
+              </label>
+            </div>
+
+            <div class="chat-input-row">
+              <textarea id="chat-textarea" placeholder="Ask Antigravity to do a task, fix code, inspect files, or run tests... (Press Enter to send, Shift+Enter for new line)"></textarea>
+              <button id="btn-chat-send" class="btn-send">
+                <span>🚀 Run</span>
+              </button>
+              <button id="btn-chat-cancel" class="btn-cancel">
+                <span>🛑 Stop</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: FILES & WORKSPACE EDITOR -->
+      <div id="view-workspace" class="view-panel">
+        <div class="workspace-container">
+          <div class="file-tree-pane">
+            <div class="tree-header">
+              <span>EXPLORER</span>
+              <div class="tree-actions">
+                <button id="btn-tree-refresh" class="btn-icon" title="Refresh files">🔄</button>
+                <button id="btn-tree-new-file" class="btn-icon" title="New file">📄+</button>
+                <button id="btn-tree-new-folder" class="btn-icon" title="New folder">📁+</button>
+                <button id="btn-tree-delete" class="btn-icon" title="Delete selected">🗑️</button>
+              </div>
+            </div>
+            <div id="tree-list" class="tree-list">
+              <!-- Files listed here -->
+            </div>
+          </div>
+
+          <div class="editor-pane">
+            <div class="editor-header">
+              <span id="editor-filename" class="editor-filename">Select a file to view or edit</span>
+              <button id="btn-editor-save" class="btn-primary" style="padding: 4px 12px; font-size: 12px; display: none;">💾 Save (Ctrl+S)</button>
+            </div>
+            <textarea id="code-editor" placeholder="// File content will appear here..." spellcheck="false" readonly></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 3: VPS WEB TERMINAL -->
+      <div id="view-terminal" class="view-panel">
+        <div class="terminal-container">
+          <div class="terminal-header">
+            <span style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">Bash Session on VPS Host</span>
+            <div style="display: flex; gap: 8px;">
+              <button id="btn-terminal-clear" class="btn-secondary" style="padding: 4px 10px; font-size: 11px;">Clear</button>
+              <button id="btn-terminal-kill" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; color: var(--accent-red);">Kill Process</button>
+            </div>
+          </div>
+          <div id="terminal-output">Connecting to VPS terminal session...\nReady.</div>
+          <div class="terminal-input-bar">
+            <span class="terminal-prompt-prefix">user@vps:~$</span>
+            <input type="text" id="terminal-cmd-input" placeholder="Type a bash command (e.g. ls -la, git pull, docker ps, htop)..." autocomplete="off">
+            <button id="btn-terminal-run" class="btn-primary">Execute</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 4: ANTIGRAVITY SETTINGS -->
+      <div id="view-settings" class="view-panel">
+        <div class="settings-container">
+          <div class="settings-tabs">
+            <button class="settings-tab-btn active" data-tab="tab-models">Models & Agents</button>
+            <button class="settings-tab-btn" data-tab="tab-mcp">MCP Servers</button>
+            <button class="settings-tab-btn" data-tab="tab-plugins">Plugins</button>
+            <button class="settings-tab-btn" data-tab="tab-rules">Custom Rules</button>
+            <button class="settings-tab-btn" data-tab="tab-raw">Raw Config</button>
+          </div>
+
+          <!-- Tab 1: Models & Agents -->
+          <div id="tab-models" class="settings-tab-pane active">
+            <div class="settings-card">
+              <h3 class="card-title">Antigravity Models</h3>
+              <p class="card-desc">Models available in the local Antigravity installation (queried via <code>agy models</code>).</p>
+              <table class="data-table">
+                <thead><tr><th>Model ID</th><th>Display Name</th></tr></thead>
+                <tbody id="settings-models-table"></tbody>
+              </table>
+            </div>
+
+            <div class="settings-card">
+              <h3 class="card-title">Available Subagents</h3>
+              <p class="card-desc">Built-in and custom subagents (queried via <code>agy agents</code>).</p>
+              <table class="data-table">
+                <thead><tr><th>Agent Name</th><th>Description</th></tr></thead>
+                <tbody id="settings-agents-table"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab 2: MCP Servers -->
+          <div id="tab-mcp" class="settings-tab-pane">
+            <div class="settings-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                  <h3 class="card-title">Model Context Protocol (MCP) Servers</h3>
+                  <p class="card-desc">Manage external MCP tool servers attached to Antigravity.</p>
+                </div>
+                <button id="btn-add-mcp-modal" class="btn-primary">+ Add MCP Server</button>
+              </div>
+              <table class="data-table">
+                <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Command / URL</th><th>Actions</th></tr></thead>
+                <tbody id="settings-mcp-table"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab 3: Plugins -->
+          <div id="tab-plugins" class="settings-tab-pane">
+            <div class="settings-card">
+              <h3 class="card-title">Installed Plugins</h3>
+              <p class="card-desc">Plugins extend Antigravity with domain-specific skills, rules, and sidecars.</p>
+              <table class="data-table">
+                <thead><tr><th>Plugin</th><th>Status</th><th>Version</th><th>Components</th><th>Actions</th></tr></thead>
+                <tbody id="settings-plugins-table"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab 4: Rules -->
+          <div id="tab-rules" class="settings-tab-pane">
+            <div class="settings-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                  <h3 class="card-title">Project Rules (GEMINI.md / AGENTS.md)</h3>
+                  <p class="card-desc">Define guidelines, architecture constraints, and instructions for the agent.</p>
+                </div>
+                <button id="btn-save-rules" class="btn-primary">Save Rules</button>
+              </div>
+              <textarea id="rules-textarea" style="width: 100%; height: 350px; background: #0b0e14; color: #fff; font-family: var(--font-mono); font-size: 13px; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);"></textarea>
+            </div>
+          </div>
+
+          <!-- Tab 5: Raw Config -->
+          <div id="tab-raw" class="settings-tab-pane">
+            <div class="settings-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                  <h3 class="card-title">Raw Antigravity Configuration</h3>
+                  <p class="card-desc">Directly edit <code>~/.gemini/settings.json</code> and <code>~/.gemini/config/config.json</code>.</p>
+                </div>
+                <button id="btn-save-raw-config" class="btn-primary">Save JSON Config</button>
+              </div>
+              <textarea id="raw-config-textarea" style="width: 100%; height: 380px; background: #0b0e14; color: #7ee787; font-family: var(--font-mono); font-size: 13px; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 5: AUTONOMOUS AUTOMATIONS & SCHEDULES -->
+      <div id="view-schedules" class="view-panel">
+        <div class="settings-container">
+          <div class="settings-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div>
+                <h3 class="card-title">Autonomous Schedules (Cron & Timers)</h3>
+                <p class="card-desc">Configure recurring automated tasks that run on the VPS in the background.</p>
+              </div>
+              <button id="btn-add-schedule-modal" class="btn-primary">+ Create Scheduled Task</button>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Name</th><th>Cron / Interval</th><th>Next Run</th><th>Active</th><th>Prompt Preview</th><th>Actions</th></tr></thead>
+              <tbody id="schedules-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 6: SECURITY AUDIT TRAIL -->
+      <div id="view-audit" class="view-panel">
+        <div class="settings-container">
+          <div class="settings-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div>
+                <h3 class="card-title">Security & Operations Audit Trail</h3>
+                <p class="card-desc">Persistent, tamper-evident log of all logins, file edits, agent executions, and shell commands.</p>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button id="btn-export-audit-csv" class="btn-secondary">Export CSV</button>
+                <button id="btn-export-audit-json" class="btn-secondary">Export JSON</button>
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+              <input type="text" id="audit-search-input" class="form-input" placeholder="Search by IP, username, resource..." style="flex: 1;">
+              <select id="audit-action-filter" class="select-control">
+                <option value="">All Actions</option>
+                <option value="AUTH_LOGIN_SUCCESS">Login Success</option>
+                <option value="AUTH_LOGIN_FAILED">Login Failed</option>
+                <option value="AGENT_TASK_START">Task Start</option>
+                <option value="FILE_WRITE">File Write</option>
+                <option value="TERMINAL_EXEC">Terminal Command</option>
+              </select>
+              <button id="btn-audit-refresh" class="btn-primary">Filter</button>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Timestamp (UTC)</th><th>User</th><th>IP Address</th><th>Action</th><th>Resource</th><th>Status</th></tr></thead>
+              <tbody id="audit-logs-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal: Create Schedule -->
+  <div id="schedule-modal" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <span>Create Scheduled Automation</span>
+        <button class="btn-icon modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Task Name</label>
+          <input type="text" id="sched-name" class="form-input" placeholder="Daily Git Pull & Tests Summary">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Interval / Cron Expression</label>
+          <input type="text" id="sched-cron" class="form-input" placeholder="*/30 * * * * or @daily or every 60 min">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Agent Prompt</label>
+          <textarea id="sched-prompt" class="form-input" rows="4" placeholder="Run git pull, run pytest, and summarize any errors into report.md"></textarea>
+        </div>
+        <label class="checkbox-label">
+          <input type="checkbox" id="sched-notify" checked>
+          <span>Send Webhook Notification on Completion</span>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-schedule" class="btn-primary">Create Schedule</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add MCP Server -->
+  <div id="mcp-modal" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <span>Add MCP Server</span>
+        <button class="btn-icon modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Server Name</label>
+          <input type="text" id="mcp-name" class="form-input" placeholder="github-mcp">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select id="mcp-type" class="select-control">
+            <option value="stdio">stdio</option>
+            <option value="sse">sse</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Command / URL</label>
+          <input type="text" id="mcp-command" class="form-input" placeholder="docker run -i --rm -e GITHUB_TOKEN ...">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-mcp" class="btn-primary">Add Server</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/chat.js"></script>
+  <script src="/static/js/explorer.js"></script>
+  <script src="/static/js/terminal.js"></script>
+  <script src="/static/js/settings.js"></script>
+  <script src="/static/js/scheduler.js"></script>
+  <script src="/static/js/audit.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

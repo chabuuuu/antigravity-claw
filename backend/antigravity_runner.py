@@ -1,0 +1,386 @@
+"""
+Antigravity Process Runner Module.
+Spawns and orchestrates Antigravity CLI (`agy`) processes using `--output-format stream-json`,
+parses NDJSON events in real-time, broadcasts deltas to WebSocket clients,
+records execution steps in SQLite, and provides process lifecycle management (cancellation/kill).
+"""
+
+import asyncio
+import json
+import logging
+import os
+import signal
+import uuid
+from datetime import datetime, timezone
+from typing import Dict, Any, Optional, Set, Callable, List
+from pathlib import Path
+
+from backend.config import AGY_BIN_PATH, DEFAULT_WORKSPACE
+from backend.database import get_db_connection
+from backend.audit import log_audit, AuditAction
+
+logger = logging.getLogger("openclaw.antigravity_runner")
+
+class ActiveTask:
+    def __init__(self, task_id: str, conversation_id: str, prompt: str, user_id: Optional[int], username: Optional[str]):
+        self.task_id = task_id
+        self.conversation_id = conversation_id
+        self.prompt = prompt
+        self.user_id = user_id
+        self.username = username
+        self.process: Optional[asyncio.subprocess.Process] = None
+        self.status = "RUNNING"  # RUNNING, COMPLETED, FAILED, CANCELLED
+        self.listeners: Set[Callable[[Dict[str, Any]], None]] = set()
+        self.created_at = datetime.now(timezone.utc).isoformat()
+        self.completed_at: Optional[str] = None
+        self.exit_code: Optional[int] = None
+        self.full_response = ""
+        self.total_usage: Dict[str, Any] = {}
+        self.steps: List[Dict[str, Any]] = []
+
+class AntigravityRunner:
+    def __init__(self):
+        self.active_tasks: Dict[str, ActiveTask] = {}
+        self.task_history: Dict[str, Dict[str, Any]] = {}
+        self.on_task_finished_callbacks: List[Callable[[ActiveTask], None]] = []
+
+    def register_on_finished(self, cb: Callable[[ActiveTask], None]):
+        self.on_task_finished_callbacks.append(cb)
+
+    async def run_prompt(
+        self,
+        prompt: str,
+        conversation_id: Optional[str] = None,
+        model: Optional[str] = None,
+        effort: Optional[str] = "medium",
+        mode: Optional[str] = "auto",
+        auto_approve: bool = True,
+        sandbox: bool = False,
+        agent: Optional[str] = None,
+        workspace_dir: Optional[str] = None,
+        user_id: Optional[int] = None,
+        username: Optional[str] = None,
+        ip_address: Optional[str] = None
+    ) -> str:
+        """
+        Launches an Antigravity task in the background and returns task_id.
+        Streams NDJSON output in real-time.
+        """
+        task_id = str(uuid.uuid4())
+        conv_id = conversation_id or str(uuid.uuid4())
+        
+        task = ActiveTask(task_id, conv_id, prompt, user_id, username)
+        self.active_tasks[task_id] = task
+
+        # Ensure conversation exists in DB
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            now_iso = datetime.now(timezone.utc).isoformat()
+            cursor.execute("""
+            INSERT INTO conversations (conversation_id, title, model, effort, mode, created_at, updated_at, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(conversation_id) DO UPDATE SET updated_at = excluded.updated_at;
+            """, (
+                conv_id,
+                prompt[:60].replace("\n", " "),
+                model or "default",
+                effort or "medium",
+                mode or "auto",
+                now_iso,
+                now_iso,
+                user_id
+            ))
+            
+            # Record user message
+            cursor.execute("""
+            INSERT INTO conversation_messages (conversation_id, role, content, step_index, created_at)
+            VALUES (?, 'user', ?, 0, ?);
+            """, (conv_id, prompt, now_iso))
+
+            # Record task
+            cursor.execute("""
+            INSERT INTO tasks (task_id, title, prompt, status, created_at, conversation_id, user_id)
+            VALUES (?, ?, ?, 'RUNNING', ?, ?, ?);
+            """, (task_id, prompt[:60], prompt, now_iso, conv_id, user_id))
+            conn.commit()
+
+        log_audit(
+            action=AuditAction.AGENT_TASK_START,
+            status="RUNNING",
+            resource=f"task:{task_id}",
+            user_id=user_id,
+            username=username,
+            ip_address=ip_address,
+            details={
+                "conversation_id": conv_id,
+                "model": model,
+                "effort": effort,
+                "mode": mode,
+                "prompt": prompt[:200]
+            }
+        )
+
+        # Build CLI command arguments
+        cwd = workspace_dir or str(DEFAULT_WORKSPACE)
+        cmd = [
+            AGY_BIN_PATH,
+            "--output-format", "stream-json"
+        ]
+        
+        if auto_approve:
+            cmd.append("--dangerously-skip-permissions")
+        if model:
+            cmd.extend(["--model", model])
+        if effort:
+            cmd.extend(["--effort", effort])
+        if mode:
+            cmd.extend(["--mode", mode])
+        if sandbox:
+            cmd.append("--sandbox")
+        if agent:
+            cmd.extend(["--agent", agent])
+        if conversation_id:
+            cmd.extend(["--conversation", conversation_id])
+            
+        cmd.extend(["--print", prompt])
+
+        # Start execution in async background task
+        asyncio.create_task(self._execute_process(task, cmd, cwd, ip_address))
+        return task_id
+
+    async def _execute_process(self, task: ActiveTask, cmd: List[str], cwd: str, ip_address: Optional[str]):
+        logger.info("Executing agy command: %s (cwd=%s)", " ".join(cmd), cwd)
+        env = os.environ.copy()
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=cwd,
+                env=env,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            task.process = process
+
+            # Update PID in DB
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("UPDATE tasks SET pid = ? WHERE task_id = ?;", (process.pid, task.task_id))
+                conn.commit()
+
+            # Stream stdout line by line
+            async for raw_line in process.stdout:
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if not line:
+                    continue
+                
+                try:
+                    event_data = json.loads(line)
+                    self._handle_stream_event(task, event_data)
+                except json.JSONDecodeError:
+                    # Non-JSON output (CLI debug message or banner)
+                    self._broadcast(task, {
+                        "type": "cli_output",
+                        "task_id": task.task_id,
+                        "text": line
+                    })
+
+            await process.wait()
+            task.exit_code = process.returncode
+            
+            # Read any leftover stderr
+            stderr_data = await process.stderr.read()
+            stderr_text = stderr_data.decode("utf-8", errors="replace").strip()
+            if stderr_text and task.exit_code != 0:
+                self._broadcast(task, {
+                    "type": "error",
+                    "task_id": task.task_id,
+                    "message": stderr_text
+                })
+
+            if task.status == "RUNNING":
+                task.status = "COMPLETED" if task.exit_code == 0 else "FAILED"
+
+        except asyncio.CancelledError:
+            task.status = "CANCELLED"
+            if task.process and task.process.returncode is None:
+                task.process.terminate()
+        except Exception as e:
+            logger.error("Error executing agy task %s: %s", task.task_id, e)
+            task.status = "FAILED"
+            self._broadcast(task, {
+                "type": "error",
+                "task_id": task.task_id,
+                "message": str(e)
+            })
+        finally:
+            task.completed_at = datetime.now(timezone.utc).isoformat()
+            
+            # Persist completion in DB
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                UPDATE tasks
+                SET status = ?, completed_at = ?, exit_code = ?
+                WHERE task_id = ?;
+                """, (task.status, task.completed_at, task.exit_code, task.task_id))
+
+                if task.full_response:
+                    cursor.execute("""
+                    INSERT INTO conversation_messages (conversation_id, role, content, metadata_json, created_at)
+                    VALUES (?, 'assistant', ?, ?, ?);
+                    """, (
+                        task.conversation_id,
+                        task.full_response,
+                        json.dumps({"usage": task.total_usage, "steps": len(task.steps)}),
+                        task.completed_at
+                    ))
+                conn.commit()
+
+            self._broadcast(task, {
+                "type": "task_completed",
+                "task_id": task.task_id,
+                "conversation_id": task.conversation_id,
+                "status": task.status,
+                "exit_code": task.exit_code,
+                "full_response": task.full_response,
+                "usage": task.total_usage
+            })
+
+            log_audit(
+                action=AuditAction.AGENT_TASK_FINISH if task.status == "COMPLETED" else AuditAction.AGENT_TASK_ERROR,
+                status="SUCCESS" if task.status == "COMPLETED" else "FAILURE",
+                resource=f"task:{task.task_id}",
+                user_id=task.user_id,
+                username=task.username,
+                ip_address=ip_address,
+                details={
+                    "status": task.status,
+                    "exit_code": task.exit_code,
+                    "conversation_id": task.conversation_id,
+                    "usage": task.total_usage
+                }
+            )
+
+            # Trigger callbacks (such as notifications)
+            for cb in self.on_task_finished_callbacks:
+                try:
+                    cb(task)
+                except Exception as cb_err:
+                    logger.error("Task finished callback error: %s", cb_err)
+
+    def _handle_stream_event(self, task: ActiveTask, data: Dict[str, Any]):
+        """Parses Antigravity stream-json event and dispatches to listeners."""
+        event_type = data.get("event")
+        
+        if event_type == "init":
+            task.conversation_id = data.get("conversation_id", task.conversation_id)
+            init_payload = data.get("init", {})
+            self._broadcast(task, {
+                "type": "agent_init",
+                "task_id": task.task_id,
+                "conversation_id": task.conversation_id,
+                "tools": init_payload.get("tools", []),
+                "permission_mode": init_payload.get("permission_mode")
+            })
+
+        elif event_type == "step_update":
+            step = data.get("step_update", {})
+            step_type = step.get("step_type")
+            state = step.get("state")
+            
+            task.steps.append(step)
+
+            if step_type == "agent_response":
+                text_delta = step.get("text_delta", "")
+                if text_delta:
+                    task.full_response += text_delta
+                
+                self._broadcast(task, {
+                    "type": "text_delta",
+                    "task_id": task.task_id,
+                    "conversation_id": task.conversation_id,
+                    "step_index": step.get("step_index"),
+                    "state": state,
+                    "text_delta": text_delta,
+                    "usage": step.get("usage")
+                })
+
+            elif step_type == "tool":
+                self._broadcast(task, {
+                    "type": "tool_call",
+                    "task_id": task.task_id,
+                    "conversation_id": task.conversation_id,
+                    "step_index": step.get("step_index"),
+                    "state": state,
+                    "tool_name": step.get("tool_name"),
+                    "tool_info": step.get("tool_info"),
+                    "duration_seconds": step.get("duration_seconds")
+                })
+            else:
+                self._broadcast(task, {
+                    "type": "step_raw",
+                    "task_id": task.task_id,
+                    "data": step
+                })
+
+        elif event_type == "result":
+            res = data.get("result", {})
+            task.total_usage = res.get("usage", {})
+            self._broadcast(task, {
+                "type": "agent_result",
+                "task_id": task.task_id,
+                "conversation_id": task.conversation_id,
+                "status": res.get("status"),
+                "duration_seconds": res.get("duration_seconds"),
+                "usage": task.total_usage
+            })
+
+    def _broadcast(self, task: ActiveTask, message: Dict[str, Any]):
+        for listener in list(task.listeners):
+            try:
+                listener(message)
+            except Exception as e:
+                logger.error("Error broadcasting to listener: %s", e)
+
+    def subscribe(self, task_id: str, listener: Callable[[Dict[str, Any]], None]):
+        if task_id in self.active_tasks:
+            self.active_tasks[task_id].listeners.add(listener)
+
+    def unsubscribe(self, task_id: str, listener: Callable[[Dict[str, Any]], None]):
+        if task_id in self.active_tasks:
+            self.active_tasks[task_id].listeners.discard(listener)
+
+    async def cancel_task(self, task_id: str, user_id: Optional[int] = None, username: Optional[str] = None, ip_address: Optional[str] = None) -> bool:
+        """Sends SIGINT / SIGTERM to abort a running task."""
+        if task_id not in self.active_tasks:
+            return False
+            
+        task = self.active_tasks[task_id]
+        if task.status != "RUNNING" or not task.process:
+            return False
+            
+        task.status = "CANCELLED"
+        try:
+            task.process.send_signal(signal.SIGINT)
+            await asyncio.sleep(1.0)
+            if task.process.returncode is None:
+                task.process.terminate()
+                await asyncio.sleep(1.0)
+                if task.process.returncode is None:
+                    task.process.kill()
+        except Exception as e:
+            logger.error("Error cancelling task %s: %s", task_id, e)
+
+        log_audit(
+            action=AuditAction.AGENT_TASK_CANCEL,
+            status="SUCCESS",
+            resource=f"task:{task_id}",
+            user_id=user_id,
+            username=username,
+            ip_address=ip_address
+        )
+        return True
+
+# Global singleton runner
+runner_instance = AntigravityRunner()
