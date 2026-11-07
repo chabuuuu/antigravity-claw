@@ -3,7 +3,7 @@ version: '3.8'
 services:
   openclaw:
     # Use pre-built GHCR image, or comment out 'image' and uncomment 'build' for local build
-    image: ghcr.io/${GHCR_REPO:-google-antigravity/antigravity-openclaw}:latest
+    image: ghcr.io/chabuuuu/antigravity-claw:latest
     # build: .
     container_name: antigravity_openclaw
     restart: unless-stopped

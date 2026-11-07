@@ -97,6 +97,28 @@ class TestOpenClawBackend(unittest.TestCase):
             self.assertGreater(len(models), 0)
         asyncio.run(run_models())
 
+import tornado.testing
+from backend.app import make_app
+
+class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
+    def get_app(self):
+        return make_app()
+
+    def test_routes_status(self):
+        res1 = self.fetch('/')
+        self.assertEqual(res1.code, 200)
+        self.assertIn(b'OpenClaw', res1.body)
+
+        res2 = self.fetch('/app')
+        self.assertEqual(res2.code, 200)
+        self.assertIn(b'OpenClaw', res2.body)
+
+        res3 = self.fetch('/favicon.ico')
+        self.assertEqual(res3.code, 200)
+
+        res4 = self.fetch('/api/health')
+        self.assertEqual(res4.code, 200)
+
 if __name__ == "__main__":
     unittest.main()
 

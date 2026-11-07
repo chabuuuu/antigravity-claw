@@ -17,6 +17,19 @@ const Explorer = {
     document.getElementById("btn-tree-new-folder").addEventListener("click", () => this.promptCreateFolder());
     document.getElementById("btn-tree-delete").addEventListener("click", () => this.deleteCurrentFile());
     document.getElementById("btn-editor-save").addEventListener("click", () => this.saveCurrentFile());
+    document.getElementById("btn-editor-download").addEventListener("click", () => this.downloadCurrentFile());
+
+    // Upload file
+    const uploadInput = document.getElementById("file-upload-input");
+    document.getElementById("btn-tree-upload").addEventListener("click", () => uploadInput.click());
+    uploadInput.addEventListener("change", (e) => this.handleUploadFile(e));
+
+    // Git diff modal
+    document.getElementById("git-status-pill").addEventListener("click", () => this.showGitDiffModal());
+    const diffModal = document.getElementById("git-diff-modal");
+    diffModal.querySelectorAll(".modal-close").forEach(btn => {
+      btn.addEventListener("click", () => diffModal.classList.remove("active"));
+    });
 
     // Ctrl+S keyboard shortcut inside editor
     document.getElementById("code-editor").addEventListener("keydown", (e) => {
@@ -89,15 +102,72 @@ const Explorer = {
       const editor = document.getElementById("code-editor");
       const filenameLabel = document.getElementById("editor-filename");
       const saveBtn = document.getElementById("btn-editor-save");
+      const downloadBtn = document.getElementById("btn-editor-download");
 
       editor.value = data.content;
       editor.removeAttribute("readonly");
       filenameLabel.innerText = `${relPath} (${(data.size / 1024).toFixed(1)} KB)`;
       saveBtn.style.display = "block";
+      downloadBtn.style.display = "block";
 
       this.loadDirectory(this.currentDirectory);
     } catch (e) {
       console.error("Failed to read file:", e);
+    }
+  },
+
+  downloadCurrentFile() {
+    if (!this.currentFilePath) return;
+    window.open(`/api/workspace/download?path=${encodeURIComponent(this.currentFilePath)}`, "_blank");
+  },
+
+  async handleUploadFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const url = `/api/workspace/upload?path=${encodeURIComponent(this.currentDirectory)}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: Auth.token ? { "Authorization": `Bearer ${Auth.token}` } : {},
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Upload failed.");
+      } else {
+        this.loadDirectory(this.currentDirectory);
+      }
+    } catch (e) {
+      alert("Upload error: " + e.message);
+    } finally {
+      event.target.value = "";
+    }
+  },
+
+  async showGitDiffModal() {
+    try {
+      const res = await fetch("/api/workspace/git/diff", {
+        headers: Auth.getAuthHeaders()
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+
+      document.getElementById("git-diff-output").innerText = data.diff || "(No differences)";
+      const commitsList = document.getElementById("git-commits-list");
+      commitsList.innerHTML = "";
+      (data.recent_commits || []).forEach(c => {
+        const li = document.createElement("li");
+        li.innerText = `• ${c}`;
+        commitsList.appendChild(li);
+      });
+
+      document.getElementById("git-diff-modal").classList.add("active");
+    } catch (e) {
+      console.error("Failed to load git diff:", e);
     }
   },
 

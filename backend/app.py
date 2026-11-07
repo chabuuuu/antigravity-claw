@@ -83,6 +83,17 @@ class BaseHandler(tornado.web.RequestHandler):
             return verify_token(token)
         return None
 
+class AppPageHandler(BaseHandler):
+    def get(self):
+        index_file = BASE_DIR / "static" / "index.html"
+        self.set_header("Content-Type", "text/html; charset=UTF-8")
+        self.write(index_file.read_bytes())
+
+class FaviconHandler(BaseHandler):
+    def get(self):
+        self.set_header("Content-Type", "image/svg+xml")
+        self.write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🦅</text></svg>')
+
 # ================= AUTH CONTROLLERS =================
 
 class AuthStatusHandler(BaseHandler):
@@ -785,8 +796,9 @@ def make_app():
     static_path = BASE_DIR / "static"
     return tornado.web.Application([
         # Frontend Entry
-        (r"/", tornado.web.RedirectHandler, {"url": "/app"}),
-        (r"/app", tornado.web.StaticFileHandler, {"path": str(static_path), "default_filename": "index.html"}),
+        (r"/", AppPageHandler),
+        (r"/app", AppPageHandler),
+        (r"/favicon.ico", FaviconHandler),
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": str(static_path)}),
         
         # Health Check
