@@ -123,10 +123,34 @@ class SettingsManager:
                     })
         return servers
 
-    async def modify_mcp(self, action: str, name: str, mcp_type: str = "stdio", command: str = "") -> Tuple[bool, str]:
+    async def modify_mcp(
+        self,
+        action: str,
+        name: str,
+        mcp_type: str = "stdio",
+        command: str = "",
+        args: Optional[List[str]] = None,
+        env_vars: Optional[List[str]] = None,
+        headers: Optional[List[str]] = None
+    ) -> Tuple[bool, str]:
         """Performs add, remove, enable, disable on MCP servers."""
         if action == "add":
-            code, out, err = await self._run_agy_subcommand(["mcp", "add", name, "--type", mcp_type, "--command", command])
+            cmd = ["mcp", "add"]
+            if mcp_type:
+                cmd.extend(["--type", mcp_type])
+            if env_vars:
+                for ev in env_vars:
+                    if ev and ev.strip():
+                        cmd.extend(["--env", ev.strip()])
+            if headers:
+                for h in headers:
+                    if h and h.strip():
+                        cmd.extend(["--header", h.strip()])
+            cmd.append(name)
+            cmd.append(command)
+            if args:
+                cmd.extend([a for a in args if a])
+            code, out, err = await self._run_agy_subcommand(cmd)
         elif action == "remove":
             code, out, err = await self._run_agy_subcommand(["mcp", "remove", name])
         elif action == "enable":
@@ -141,7 +165,28 @@ class SettingsManager:
         return success, msg
 
     async def get_plugins(self) -> List[Dict[str, Any]]:
-        """Parses `agy plugins list`."""
+        """Parses `agy plugins list --json` or falls back to text parsing."""
+        code, out, err = await self._run_agy_subcommand(["plugins", "list", "--json"])
+        if code == 0 and out.strip():
+            try:
+                data = json.loads(out)
+                if isinstance(data, list):
+                    plugins = []
+                    for item in data:
+                        skills = item.get("skills", [])
+                        plugins.append({
+                            "name": item.get("name", "unknown"),
+                            "status": "enabled" if item.get("enabled", True) else "disabled",
+                            "version": item.get("version", "latest"),
+                            "source": item.get("source", ""),
+                            "path": item.get("path", ""),
+                            "components": ", ".join(skills) if isinstance(skills, list) else str(skills)
+                        })
+                    return plugins
+            except Exception as e:
+                logger.debug("Failed to parse plugins JSON: %s", e)
+
+        # Fallback to plain text parsing
         code, out, err = await self._run_agy_subcommand(["plugins", "list"])
         plugins = []
         if code == 0 and out.strip():
@@ -149,7 +194,6 @@ class SettingsManager:
             for line in out.splitlines():
                 line = line.strip()
                 if line.startswith("- "):
-                    # e.g. - android-cli-plugin (enabled, 1.0.16625370)
                     m = re.match(r"-\s+([^\s]+)\s+\(([^,]+),\s*([^)]+)\)", line)
                     if m:
                         current_plugin = {
@@ -183,6 +227,82 @@ class SettingsManager:
             success = (code == 0)
             return success, out.strip() if success else (err.strip() or out.strip())
         return False, f"Unknown plugin action: {action}"
+
+    async def import_plugin(self, source: str) -> Tuple[bool, str]:
+        """Imports plugins from gemini or claude via `agy plugin import <source>`."""
+        code, out, err = await self._run_agy_subcommand(["plugin", "import", source])
+        success = (code == 0)
+        return success, out.strip() if success else (err.strip() or out.strip())
+
+    async def validate_plugin(self, path: str = ".", strict: bool = False) -> Tuple[bool, str]:
+        """Validates a plugin manifest and files via `agy plugin validate`."""
+        cmd = ["plugin", "validate"]
+        if path:
+            cmd.append(path)
+        if strict:
+            cmd.append("--strict")
+        code, out, err = await self._run_agy_subcommand(cmd)
+        success = (code == 0)
+        return success, out.strip() if success else (err.strip() or out.strip())
+
+    async def link_plugin(self, marketplace: str, target: str) -> Tuple[bool, str]:
+        """Generates marketplace link via `agy plugin link <mp> <target>`."""
+        code, out, err = await self._run_agy_subcommand(["plugin", "link", marketplace, target])
+        success = (code == 0)
+        return success, out.strip() if success else (err.strip() or out.strip())
+
+    async def get_remote_control_status(self) -> Dict[str, Any]:
+        """Retrieves daemon status via `agy remote-control status`."""
+        code, out, err = await self._run_agy_subcommand(["remote-control", "status"])
+        full_text = out.strip() if code == 0 else (err.strip() or out.strip())
+        is_active = "active" in full_text.lower() and "inactive" not in full_text.lower()
+        instance_name = ""
+        for line in full_text.splitlines():
+            if "instance name:" in line.lower():
+                instance_name = line.split(":", 1)[1].strip()
+        return {
+            "status": "active" if is_active else "inactive",
+            "instance_name": instance_name,
+            "raw_output": full_text
+        }
+
+    async def start_remote_control(self, name: Optional[str] = None, session: bool = False) -> Tuple[bool, str]:
+        """Starts the remote control daemon via `agy remote-control start`."""
+        cmd = ["remote-control", "start"]
+        if name and name.strip():
+            cmd.extend(["--name", name.strip()])
+        if session:
+            cmd.append("--session")
+        code, out, err = await self._run_agy_subcommand(cmd)
+        success = (code == 0)
+        return success, out.strip() if success else (err.strip() or out.strip())
+
+    async def stop_remote_control(self) -> Tuple[bool, str]:
+        """Stops the remote control daemon via `agy remote-control stop`."""
+        code, out, err = await self._run_agy_subcommand(["remote-control", "stop"])
+        success = (code == 0)
+        return success, out.strip() if success else (err.strip() or out.strip())
+
+    async def get_changelog(self) -> Tuple[bool, str]:
+        """Returns changelog via `agy changelog`."""
+        code, out, err = await self._run_agy_subcommand(["changelog"])
+        success = (code == 0)
+        return success, out.strip() if success else (err.strip() or out.strip())
+
+    async def update_cli(self) -> Tuple[bool, str]:
+        """Updates CLI binary via `agy update`."""
+        code, out, err = await self._run_agy_subcommand(["update"])
+        success = (code == 0)
+        return success, out.strip() if success else (err.strip() or out.strip())
+
+    async def run_install(self, dir_path: Optional[str] = None) -> Tuple[bool, str]:
+        """Configures environment paths and shell settings via `agy install`."""
+        cmd = ["install"]
+        if dir_path:
+            cmd.extend(["--dir", dir_path])
+        code, out, err = await self._run_agy_subcommand(cmd)
+        success = (code == 0)
+        return success, out.strip() if success else (err.strip() or out.strip())
 
     def get_raw_settings(self) -> Dict[str, Any]:
         """Reads ~/.gemini/settings.json and ~/.gemini/config/config.json."""

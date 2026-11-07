@@ -194,6 +194,15 @@ class AgentPromptHandler(BaseHandler):
         auto_approve = bool(data.get("auto_approve", True))
         sandbox = bool(data.get("sandbox", False))
         agent = data.get("agent")
+        continue_session = bool(data.get("continue", False))
+        remote_agent = bool(data.get("remote_agent", False))
+        project = data.get("project")
+        new_project = bool(data.get("new_project", False))
+        add_dirs = data.get("add_dirs")
+        disable_slash_commands = bool(data.get("disable_slash_commands", False))
+        json_schema = data.get("json_schema")
+        print_timeout = data.get("print_timeout")
+        session_settings = data.get("settings")
         
         user_id = int(self.current_user["sub"])
         username = self.current_user["username"]
@@ -207,6 +216,15 @@ class AgentPromptHandler(BaseHandler):
             auto_approve=auto_approve,
             sandbox=sandbox,
             agent=agent,
+            continue_session=continue_session,
+            remote_agent=remote_agent,
+            project=project,
+            new_project=new_project,
+            add_dirs=add_dirs,
+            disable_slash_commands=disable_slash_commands,
+            json_schema=json_schema,
+            print_timeout=print_timeout,
+            session_settings=session_settings,
             user_id=user_id,
             username=username,
             ip_address=self.get_client_ip()
@@ -325,8 +343,19 @@ class SettingsMcpHandler(BaseHandler):
         name = data.get("name", "")
         mcp_type = data.get("type", "stdio")
         cmd = data.get("command", "")
+        args = data.get("args")
+        env_vars = data.get("env_vars")
+        headers = data.get("headers")
         
-        success, msg = await settings_manager_instance.modify_mcp(action, name, mcp_type, cmd)
+        success, msg = await settings_manager_instance.modify_mcp(
+            action=action,
+            name=name,
+            mcp_type=mcp_type,
+            command=cmd,
+            args=args,
+            env_vars=env_vars,
+            headers=headers
+        )
         log_audit(
             action=AuditAction.MCP_MODIFY,
             status="SUCCESS" if success else "FAILURE",
@@ -359,6 +388,111 @@ class SettingsPluginsHandler(BaseHandler):
             username=self.current_user["username"],
             ip_address=self.get_client_ip(),
             details={"action": action, "output": msg}
+        )
+        self.write({"success": success, "message": msg})
+
+class SettingsPluginsImportHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        source = data.get("source", "gemini")
+        success, msg = await settings_manager_instance.import_plugin(source)
+        log_audit(
+            action=AuditAction.PLUGIN_MODIFY,
+            status="SUCCESS" if success else "FAILURE",
+            resource=f"plugin_import:{source}",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip(),
+            details={"output": msg}
+        )
+        self.write({"success": success, "message": msg})
+
+class SettingsPluginsValidateHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        path = data.get("path", ".")
+        strict = bool(data.get("strict", False))
+        success, msg = await settings_manager_instance.validate_plugin(path, strict)
+        self.write({"success": success, "report": msg})
+
+class SettingsPluginsLinkHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        marketplace = data.get("marketplace", "")
+        target = data.get("target", "")
+        success, msg = await settings_manager_instance.link_plugin(marketplace, target)
+        self.write({"success": success, "message": msg})
+
+class SettingsRemoteControlHandler(BaseHandler):
+    @require_auth
+    async def get(self):
+        status = await settings_manager_instance.get_remote_control_status()
+        self.write(status)
+
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        action = data.get("action", "")
+        if action == "start":
+            name = data.get("name")
+            session = bool(data.get("session", False))
+            success, msg = await settings_manager_instance.start_remote_control(name=name, session=session)
+        elif action == "stop":
+            success, msg = await settings_manager_instance.stop_remote_control()
+        else:
+            self.set_status(400)
+            self.finish({"error": f"Unknown remote-control action: {action}"})
+            return
+
+        log_audit(
+            action=AuditAction.SETTINGS_UPDATE,
+            status="SUCCESS" if success else "FAILURE",
+            resource="remote_control_daemon",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip(),
+            details={"action": action, "output": msg}
+        )
+        self.write({"success": success, "message": msg})
+
+class SettingsChangelogHandler(BaseHandler):
+    @require_auth
+    async def get(self):
+        success, text = await settings_manager_instance.get_changelog()
+        self.write({"success": success, "changelog": text})
+
+class SettingsCliUpdateHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        success, msg = await settings_manager_instance.update_cli()
+        log_audit(
+            action=AuditAction.SETTINGS_UPDATE,
+            status="SUCCESS" if success else "FAILURE",
+            resource="cli_update",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip(),
+            details={"output": msg}
+        )
+        self.write({"success": success, "message": msg})
+
+class SettingsCliInstallHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        dir_path = data.get("dir")
+        success, msg = await settings_manager_instance.run_install(dir_path)
+        log_audit(
+            action=AuditAction.SETTINGS_UPDATE,
+            status="SUCCESS" if success else "FAILURE",
+            resource="cli_install",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip(),
+            details={"output": msg}
         )
         self.write({"success": success, "message": msg})
 
@@ -874,6 +1008,13 @@ def make_app():
         (r"/api/settings/agents", SettingsAgentsHandler),
         (r"/api/settings/mcp", SettingsMcpHandler),
         (r"/api/settings/plugins", SettingsPluginsHandler),
+        (r"/api/settings/plugins/import", SettingsPluginsImportHandler),
+        (r"/api/settings/plugins/validate", SettingsPluginsValidateHandler),
+        (r"/api/settings/plugins/link", SettingsPluginsLinkHandler),
+        (r"/api/settings/remote-control", SettingsRemoteControlHandler),
+        (r"/api/settings/changelog", SettingsChangelogHandler),
+        (r"/api/settings/update", SettingsCliUpdateHandler),
+        (r"/api/settings/install", SettingsCliInstallHandler),
         (r"/api/settings/rules", SettingsRulesHandler),
         (r"/api/settings/raw", SettingsRawHandler),
         (r"/api/settings/webhooks", SettingsWebhooksHandler),

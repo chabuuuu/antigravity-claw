@@ -180,15 +180,69 @@
                 </select>
               </div>
 
+              <div class="control-group">
+                <span class="control-label">Agent:</span>
+                <select id="chat-agent-select" class="select-control">
+                  <option value="">Default Agent</option>
+                </select>
+              </div>
+
               <label class="checkbox-label" title="Skip interactive tool confirmations for full autonomy">
                 <input type="checkbox" id="chat-auto-approve" checked>
-                <span>Autonomous Mode (Auto-proceed)</span>
+                <span>Autonomous</span>
               </label>
 
               <label class="checkbox-label" title="Run in restricted terminal sandbox">
                 <input type="checkbox" id="chat-sandbox">
                 <span>Sandbox</span>
               </label>
+
+              <button type="button" id="btn-toggle-advanced-flags" class="btn-secondary" style="padding: 4px 10px; font-size: 11px; margin-left: auto;">
+                ⚙️ CLI Flags
+              </button>
+            </div>
+
+            <!-- Collapsible Advanced Flags Panel -->
+            <div id="chat-advanced-flags-panel" class="advanced-flags-panel" style="display: none; padding: 10px 14px; background: rgba(22, 27, 34, 0.95); border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 6px;">
+              <div style="font-weight: 600; color: var(--accent-blue); width: 100%; margin-bottom: 2px;">
+                Antigravity CLI Session Parameters:
+              </div>
+              <label class="checkbox-label" title="--continue: Continue the most recent conversation">
+                <input type="checkbox" id="chat-continue">
+                <span>Continue Recent (-c)</span>
+              </label>
+              <label class="checkbox-label" title="--remote-agent: Run this session's conversations using Google remote agents">
+                <input type="checkbox" id="chat-remote-agent">
+                <span>Remote Agent</span>
+              </label>
+              <div class="control-group" title="--project: Remote or local project ID/name">
+                <span class="control-label">Project:</span>
+                <input type="text" id="chat-project" class="form-input" placeholder="Project ID/Name" style="width: 130px; padding: 3px 8px; font-size: 11px;">
+              </div>
+              <label class="checkbox-label" title="--new-project: Create a new project for this session">
+                <input type="checkbox" id="chat-new-project">
+                <span>New Project</span>
+              </label>
+              <div class="control-group" title="--add-dir: Additional workspace directories">
+                <span class="control-label">Extra Dirs:</span>
+                <input type="text" id="chat-add-dirs" class="form-input" placeholder="/path/one, /path/two" style="width: 170px; padding: 3px 8px; font-size: 11px;">
+              </div>
+              <label class="checkbox-label" title="--disable-slash-commands: Disable slash command and skill expansion">
+                <input type="checkbox" id="chat-disable-slash-commands">
+                <span>No Slash Commands</span>
+              </label>
+              <div class="control-group" title="--print-timeout: Max duration for turn (e.g. 120s or 0s)">
+                <span class="control-label">Timeout:</span>
+                <input type="text" id="chat-print-timeout" class="form-input" placeholder="0s" style="width: 60px; padding: 3px 8px; font-size: 11px;">
+              </div>
+              <div class="control-group" style="flex: 1; min-width: 200px;" title="--json-schema: Optional JSON schema string or path to schema file">
+                <span class="control-label">JSON Schema:</span>
+                <input type="text" id="chat-json-schema" class="form-input" placeholder='Schema path or {"type":"object"...}' style="width: 100%; padding: 3px 8px; font-size: 11px;">
+              </div>
+              <div class="control-group" style="flex: 1; min-width: 220px;" title="--settings: Session-only ephemeral settings JSON object">
+                <span class="control-label">Settings Override:</span>
+                <input type="text" id="chat-session-settings" class="form-input" placeholder='{"key": "value"}' style="width: 100%; padding: 3px 8px; font-size: 11px;">
+              </div>
             </div>
 
             <div class="chat-input-row">
@@ -263,6 +317,8 @@
             <button class="settings-tab-btn active" data-tab="tab-models">Models & Agents</button>
             <button class="settings-tab-btn" data-tab="tab-mcp">MCP Servers</button>
             <button class="settings-tab-btn" data-tab="tab-plugins">Plugins</button>
+            <button class="settings-tab-btn" data-tab="tab-remote-control">Remote Control & ACP</button>
+            <button class="settings-tab-btn" data-tab="tab-updates">Updates & Changelog</button>
             <button class="settings-tab-btn" data-tab="tab-rules">Custom Rules</button>
             <button class="settings-tab-btn" data-tab="tab-raw">Raw Config</button>
             <button class="settings-tab-btn" data-tab="tab-webhooks">Webhooks & Alerts</button>
@@ -325,12 +381,106 @@
           <!-- Tab 3: Plugins -->
           <div id="tab-plugins" class="settings-tab-pane">
             <div class="settings-card">
-              <h3 class="card-title">Installed Plugins</h3>
-              <p class="card-desc">Plugins extend Antigravity with domain-specific skills, rules, and sidecars.</p>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <div>
+                  <h3 class="card-title">Installed Plugins</h3>
+                  <p class="card-desc">Plugins extend Antigravity with domain-specific skills, rules, and sidecars.</p>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  <button id="btn-plugin-install-modal" class="btn-primary" style="padding: 6px 12px; font-size: 12px;">+ Install Plugin</button>
+                  <button id="btn-plugin-import-modal" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;">📥 Import</button>
+                  <button id="btn-plugin-validate-modal" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;">🔍 Validate</button>
+                  <button id="btn-plugin-link-modal" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;">🔗 Link Marketplace</button>
+                </div>
+              </div>
               <table class="data-table">
                 <thead><tr><th>Plugin</th><th>Status</th><th>Version</th><th>Components</th><th>Actions</th></tr></thead>
                 <tbody id="settings-plugins-table"></tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- Tab: Remote Control & Services -->
+          <div id="tab-remote-control" class="settings-tab-pane">
+            <div class="settings-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <div>
+                  <h3 class="card-title">Antigravity Remote Control Daemon (agy remote-control)</h3>
+                  <p class="card-desc">Background daemon that allows remote Antigravity sessions and remote device control.</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span id="remote-control-status-badge" class="badge" style="background: rgba(139, 148, 158, 0.2); color: var(--text-muted); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">Checking...</span>
+                  <button id="btn-refresh-remote-control" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;">🔄 Refresh</button>
+                </div>
+              </div>
+              <div style="background: rgba(22, 27, 34, 0.8); border: 1px solid var(--border-color); border-radius: 6px; padding: 14px; margin-bottom: 16px;">
+                <div style="display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; align-items: flex-end;">
+                  <div class="form-group" style="margin: 0; min-width: 220px;">
+                    <label class="form-label" style="font-size: 11px;">Machine / Instance Name (--name)</label>
+                    <input type="text" id="rc-instance-name" class="form-input" placeholder="e.g. ubuntu-vps-primary" style="font-size: 12px; padding: 6px 10px;">
+                  </div>
+                  <label class="checkbox-label" style="margin: 0 0 6px 0;" title="Register daemon login-scoped instead of boot-scoped">
+                    <input type="checkbox" id="rc-session-scope">
+                    <span>Login-scoped (--session)</span>
+                  </label>
+                  <div style="display: flex; gap: 8px;">
+                    <button id="btn-rc-start" class="btn-primary" style="padding: 6px 16px; font-size: 12px;">▶ Start Daemon</button>
+                    <button id="btn-rc-stop" class="btn-secondary" style="padding: 6px 16px; font-size: 12px; color: var(--accent-red);">⏹ Stop Daemon</button>
+                  </div>
+                </div>
+                <pre id="rc-status-output" style="background: #0b0e14; color: #a5d6ff; font-family: var(--font-mono); font-size: 12px; padding: 10px; border-radius: 4px; margin: 0; max-height: 120px; overflow: auto;"></pre>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <h3 class="card-title">Agent Client Protocol (ACP) Server (agy acp)</h3>
+              <p class="card-desc">Start the Antigravity Agent Client Protocol stdio server to connect IDEs (VS Code, JetBrains, Zed, Neovim) directly to this VPS.</p>
+              <div style="background: #0b0e14; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; font-family: var(--font-mono); font-size: 12px; color: #7ee787; margin-bottom: 10px;">
+                # Launch ACP stdio server directly or via SSH tunnel:<br>
+                agy acp --dangerously-skip-permissions
+              </div>
+              <p style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+                In your local IDE ACP settings (e.g. Zed / VS Code Claude Code or ACP extension), set command to <code>ssh -i ~/.ssh/id_rsa user@vps_ip "agy acp"</code>.
+              </p>
+            </div>
+
+            <div class="settings-card">
+              <h3 class="card-title">Microphone Streaming Service (agy mic-serve)</h3>
+              <p class="card-desc">Stream remote machine audio/microphone to an Antigravity CLI instance on another host.</p>
+              <div style="background: #0b0e14; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; font-family: var(--font-mono); font-size: 12px; color: #7ee787;">
+                agy mic-serve --addr 127.0.0.1:4713
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab: CLI Updates & Changelog -->
+          <div id="tab-updates" class="settings-tab-pane">
+            <div class="settings-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <div>
+                  <h3 class="card-title">Antigravity CLI Maintenance</h3>
+                  <p class="card-desc">Manage CLI binaries and shell environment on this host/container.</p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <button id="btn-agy-install" class="btn-secondary" style="padding: 6px 14px; font-size: 12px;">⚙️ Configure PATH (agy install)</button>
+                  <button id="btn-agy-update" class="btn-primary" style="padding: 6px 14px; font-size: 12px;">🚀 Update CLI (agy update)</button>
+                </div>
+              </div>
+              <pre id="agy-maintenance-output" style="display: none; background: #0b0e14; color: #a5d6ff; font-family: var(--font-mono); font-size: 12px; padding: 12px; border-radius: 6px; max-height: 180px; overflow: auto; border: 1px solid var(--border-color); margin-bottom: 16px;"></pre>
+            </div>
+
+            <div class="settings-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <div>
+                  <h3 class="card-title">Antigravity Release Notes & Changelog (agy changelog)</h3>
+                  <p class="card-desc">Complete changelog of all Antigravity CLI versions and features.</p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <input type="text" id="changelog-search-input" class="form-input" placeholder="Search changelog (e.g. 1.5.2, sandbox, mcp)..." style="width: 260px; font-size: 12px; padding: 4px 10px;">
+                  <button id="btn-reload-changelog" class="btn-secondary" style="padding: 4px 12px; font-size: 12px;">🔄 Refresh</button>
+                </div>
+              </div>
+              <div id="changelog-viewer" style="background: #0b0e14; border: 1px solid var(--border-color); border-radius: 6px; padding: 16px; max-height: 480px; overflow-y: auto; font-family: var(--font-mono); font-size: 12px; color: #c9d1d9; line-height: 1.6; white-space: pre-wrap;">Loading changelog...</div>
             </div>
           </div>
 
@@ -494,30 +644,134 @@
 
   <!-- Modal: Add MCP Server -->
   <div id="mcp-modal" class="modal-overlay">
-    <div class="modal-dialog">
+    <div class="modal-dialog" style="max-width: 580px;">
       <div class="modal-header">
-        <span>Add MCP Server</span>
+        <span>Add MCP Server (agy mcp add)</span>
         <button class="btn-icon modal-close">✕</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Server Name</label>
-          <input type="text" id="mcp-name" class="form-input" placeholder="github-mcp">
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Server Name</label>
+            <input type="text" id="mcp-name" class="form-input" placeholder="e.g. github-mcp">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Type (--type)</label>
+            <select id="mcp-type" class="select-control" style="width: 100%;">
+              <option value="stdio">stdio</option>
+              <option value="http">http</option>
+            </select>
+          </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Type</label>
-          <select id="mcp-type" class="select-control">
-            <option value="stdio">stdio</option>
-            <option value="sse">sse</option>
-          </select>
+          <label class="form-label">Command Executable or HTTP URL</label>
+          <input type="text" id="mcp-command" class="form-input" placeholder="docker or npx or https://example.com/mcp">
         </div>
         <div class="form-group">
-          <label class="form-label">Command / URL</label>
-          <input type="text" id="mcp-command" class="form-input" placeholder="docker run -i --rm -e GITHUB_TOKEN ...">
+          <label class="form-label">Command Arguments (space separated)</label>
+          <input type="text" id="mcp-args" class="form-input" placeholder="run -i --rm ghcr.io/github/mcp">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Environment Variables (--env KEY=value, one per line)</label>
+          <textarea id="mcp-env-vars" class="form-input" rows="2" placeholder="GITHUB_TOKEN=ghp_xxx&#10;API_KEY=secret" style="font-family: var(--font-mono); font-size: 12px;"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">HTTP Headers (--header Key: Value, one per line)</label>
+          <textarea id="mcp-headers" class="form-input" rows="2" placeholder="Authorization: Bearer YOUR_TOKEN" style="font-family: var(--font-mono); font-size: 12px;"></textarea>
         </div>
       </div>
       <div class="modal-footer">
         <button id="btn-save-mcp" class="btn-primary">Add Server</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Install Plugin -->
+  <div id="plugin-install-modal" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <span>Install Antigravity Plugin</span>
+        <button class="btn-icon modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Plugin Name or Target (agy plugin install &lt;target&gt;)</label>
+          <input type="text" id="plugin-install-target" class="form-input" placeholder="e.g. android-cli-plugin or custom-plugin@marketplace">
+          <small style="color: var(--text-muted); font-size: 11px; margin-top: 4px; display: block;">Supports official plugins or custom plugin[@marketplace] format.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-submit-plugin-install" class="btn-primary">Install Plugin</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Import Plugins -->
+  <div id="plugin-import-modal" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <span>Import Plugins (agy plugin import)</span>
+        <button class="btn-icon modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Import Source</label>
+          <select id="plugin-import-source" class="select-control" style="width: 100%;">
+            <option value="gemini">Gemini</option>
+            <option value="claude">Claude</option>
+          </select>
+          <small style="color: var(--text-muted); font-size: 11px; margin-top: 4px; display: block;">Imports compatible skills and tool definitions into Antigravity.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-submit-plugin-import" class="btn-primary">Import Plugins</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Validate Plugin -->
+  <div id="plugin-validate-modal" class="modal-overlay">
+    <div class="modal-dialog" style="max-width: 600px;">
+      <div class="modal-header">
+        <span>Validate Plugin (agy plugin validate)</span>
+        <button class="btn-icon modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Plugin Directory or plugin.json Path</label>
+          <input type="text" id="plugin-validate-path" class="form-input" placeholder=". or /path/to/plugin" value=".">
+        </div>
+        <label class="checkbox-label" style="margin-bottom: 12px;">
+          <input type="checkbox" id="plugin-validate-strict">
+          <span>Strict Mode (--strict: treat warnings as errors)</span>
+        </label>
+        <pre id="plugin-validate-output" style="display: none; background: #0b0e14; color: #a5d6ff; font-family: var(--font-mono); font-size: 12px; padding: 12px; border-radius: 6px; max-height: 240px; overflow: auto; border: 1px solid var(--border-color);"></pre>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-submit-plugin-validate" class="btn-primary">Run Validation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Link Plugin Marketplace -->
+  <div id="plugin-link-modal" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <span>Link Marketplace (agy plugin link)</span>
+        <button class="btn-icon modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Marketplace Name</label>
+          <input type="text" id="plugin-link-mp" class="form-input" placeholder="e.g. official or community">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Link URI</label>
+          <input type="text" id="plugin-link-target" class="form-input" placeholder="e.g. https://... or local path">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-submit-plugin-link" class="btn-primary">Generate Link</button>
       </div>
     </div>
   </div>

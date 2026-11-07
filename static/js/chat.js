@@ -13,6 +13,7 @@ const Chat = {
   init() {
     this.bindEvents();
     this.loadConversations();
+    this.loadAgentsList();
   },
 
   bindEvents() {
@@ -20,10 +21,22 @@ const Chat = {
     const cancelBtn = document.getElementById("btn-chat-cancel");
     const textarea = document.getElementById("chat-textarea");
     const newSessionBtn = document.getElementById("btn-new-session");
+    const toggleFlagsBtn = document.getElementById("btn-toggle-advanced-flags");
 
     sendBtn.addEventListener("click", () => this.sendPrompt());
     cancelBtn.addEventListener("click", () => this.cancelTask());
     newSessionBtn.addEventListener("click", () => this.startNewSession());
+
+    if (toggleFlagsBtn) {
+      toggleFlagsBtn.addEventListener("click", () => {
+        const panel = document.getElementById("chat-advanced-flags-panel");
+        if (panel) {
+          const isShown = panel.style.display === "flex";
+          panel.style.display = isShown ? "none" : "flex";
+          toggleFlagsBtn.style.background = isShown ? "" : "rgba(56, 139, 253, 0.25)";
+        }
+      });
+    }
 
     textarea.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -90,6 +103,25 @@ const Chat = {
     }
   },
 
+  async loadAgentsList() {
+    const select = document.getElementById("chat-agent-select");
+    if (!select) return;
+    try {
+      const res = await fetch("/api/settings/agents", { headers: Auth.getAuthHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      select.innerHTML = '<option value="">Default Agent</option>';
+      (data.agents || []).forEach(ag => {
+        const opt = document.createElement("option");
+        opt.value = ag.name;
+        opt.innerText = ag.name + (ag.description ? ` (${ag.description})` : "");
+        select.appendChild(opt);
+      });
+    } catch (e) {
+      console.warn("Failed to load agents list:", e);
+    }
+  },
+
   startNewSession() {
     this.activeConversationId = null;
     this.activeTaskId = null;
@@ -143,8 +175,21 @@ const Chat = {
     const model = document.getElementById("chat-model-select").value;
     const effort = document.getElementById("chat-effort-select").value;
     const mode = document.getElementById("chat-mode-select").value;
+    const agentSelect = document.getElementById("chat-agent-select");
+    const agent = agentSelect ? agentSelect.value : "";
     const autoApprove = document.getElementById("chat-auto-approve").checked;
     const sandbox = document.getElementById("chat-sandbox").checked;
+
+    // Advanced Flags
+    const continueSession = document.getElementById("chat-continue") ? document.getElementById("chat-continue").checked : false;
+    const remoteAgent = document.getElementById("chat-remote-agent") ? document.getElementById("chat-remote-agent").checked : false;
+    const project = document.getElementById("chat-project") ? document.getElementById("chat-project").value.trim() : "";
+    const newProject = document.getElementById("chat-new-project") ? document.getElementById("chat-new-project").checked : false;
+    const addDirs = document.getElementById("chat-add-dirs") ? document.getElementById("chat-add-dirs").value.split(",").map(s => s.trim()).filter(Boolean) : [];
+    const disableSlashCommands = document.getElementById("chat-disable-slash-commands") ? document.getElementById("chat-disable-slash-commands").checked : false;
+    const printTimeout = document.getElementById("chat-print-timeout") ? document.getElementById("chat-print-timeout").value.trim() : "";
+    const jsonSchema = document.getElementById("chat-json-schema") ? document.getElementById("chat-json-schema").value.trim() : "";
+    const sessionSettings = document.getElementById("chat-session-settings") ? document.getElementById("chat-session-settings").value.trim() : "";
 
     // Display user message
     this.appendUserMessage(prompt);
@@ -154,18 +199,30 @@ const Chat = {
     this.prepareAssistantBubble();
 
     try {
+      const payload = {
+        prompt,
+        conversation_id: this.activeConversationId,
+        model,
+        effort,
+        mode,
+        auto_approve: autoApprove,
+        sandbox
+      };
+      if (agent) payload.agent = agent;
+      if (continueSession) payload.continue = true;
+      if (remoteAgent) payload.remote_agent = true;
+      if (project) payload.project = project;
+      if (newProject) payload.new_project = true;
+      if (addDirs.length > 0) payload.add_dirs = addDirs;
+      if (disableSlashCommands) payload.disable_slash_commands = true;
+      if (printTimeout) payload.print_timeout = printTimeout;
+      if (jsonSchema) payload.json_schema = jsonSchema;
+      if (sessionSettings) payload.settings = sessionSettings;
+
       const res = await fetch("/api/agent/prompt", {
         method: "POST",
         headers: Auth.getAuthHeaders(),
-        body: JSON.stringify({
-          prompt,
-          conversation_id: this.activeConversationId,
-          model,
-          effort,
-          mode,
-          auto_approve: autoApprove,
-          sandbox
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
