@@ -565,6 +565,24 @@ body {
   cursor: pointer;
 }
 
+.advanced-flags-panel {
+  display: flex;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px 14px;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 12px;
+}
+
+.advanced-flags-panel .form-input {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-bright);
+}
+
 .chat-input-row {
   display: flex;
   gap: 10px;

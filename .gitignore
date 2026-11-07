@@ -6,4 +6,4 @@ venv/
 data/
 logs/
 .DS_Store
-
+workspace

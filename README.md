@@ -40,11 +40,39 @@ When installed on a self-hosted Ubuntu Linux VPS, it allows developers to:
 - **Token Telemetry**: Complete breakdown of input, output, and thinking tokens along with turn execution duration.
 - **Multi-Turn Sessions**: Conversation history persistence in SQLite; resume or stop running sessions anytime.
 
-### 2. ⚙️ Complete Antigravity Configuration Suite
-- **Dynamic Model Selector**: Real-time discovery via `agy models` (Gemini 4 Argon High/Med/Low, Gemini 3.8 Flash, Claude Opus/Sonnet 5.5, GPT-OSS 120B).
-- **Reasoning Effort & Persona Modes**: Configurable depth (`low`, `medium`, `high`, `xhigh`, `max`) and execution modes (`auto`, `accept-edits`, `plan`).
-- **Model Context Protocol (MCP) Manager**: List, add, enable, disable, and remove external MCP servers directly on the UI (`agy mcp list/add/remove`).
-- **Plugin Management**: Inspect installed plugins, version numbers, components, and toggle availability (`agy plugins list/enable/disable`).
+### 2. ⚙️ Complete Antigravity Configuration & CLI Suite (100% Feature Parity)
+- **All Session Execution Flags**:
+  - `--model`: Real-time discovery via `agy models` (Gemini 4 Argon, Gemini 3.8 Flash, Claude Opus/Sonnet 5.5, GPT-OSS).
+  - `--effort`: All 5 reasoning effort tiers (`low`, `medium`, `high`, `xhigh`, `max`).
+  - `--mode`: Full execution mode control (`auto`, `accept-edits`, `plan`).
+  - `--agent`: Built-in and custom subagent selection (`agy agents`).
+  - `--dangerously-skip-permissions`: Autonomous auto-approval mode.
+  - `--sandbox`: Restricted terminal sandbox isolation.
+  - `--remote-agent`: Direct execution on Google Antigravity remote agents.
+  - `--project` & `--new-project`: Remote/local project selection and on-demand project creation.
+  - `--continue` (`-c`): Seamless resumption of the most recent conversation.
+  - `--add-dir`: Attach extra workspace directories dynamically.
+  - `--disable-slash-commands`: Disable print-mode slash command & skill expansion.
+  - `--json-schema`: Enforce structured JSON schema outputs.
+  - `--print-timeout`: Configurable execution deadlines.
+  - `--settings`: Ephemeral session-only settings overrides.
+- **Model Context Protocol (MCP) Manager**:
+  - Full CLI flag support for `agy mcp add`: `--type` (stdio/http), `--env` (`KEY=val`), `--header` (`Header: Value`), command arguments.
+  - List, enable, disable, and remove MCP tool servers.
+- **Plugin Lifecycle & Validation Suite**:
+  - `agy plugin list`: High-fidelity JSON plugin status, version, and component discovery.
+  - `agy plugin install`: Install official or custom plugins (`plugin[@marketplace]`).
+  - `agy plugin import`: Import compatible plugins from `gemini` or `claude`.
+  - `agy plugin validate`: Run validator with optional `--strict` mode.
+  - `agy plugin link`: Generate marketplace links.
+- **Remote Control & Service Daemons**:
+  - `agy remote-control`: Start, stop, and inspect the remote control daemon (`--name`, `--session`).
+  - `agy acp`: Information and command generator for the Agent Client Protocol (ACP) stdio server (VS Code, JetBrains, Zed, Neovim).
+  - `agy mic-serve`: Start and monitor remote microphone audio dictation services.
+- **System Maintenance & Updates**:
+  - `agy update`: In-place CLI binary updater with live execution output.
+  - `agy install`: Configure shell profiles and environment PATHs.
+  - `agy changelog`: Full interactive, searchable release notes and version changelog viewer.
 - **Project Rules & Guidelines**: Directly view and edit `GEMINI.md` and `AGENTS.md` in the browser.
 - **Raw Configuration Editor**: Safe editor for `~/.gemini/settings.json` and `~/.gemini/config/config.json`.
 

@@ -63,6 +63,15 @@ class AntigravityRunner:
         sandbox: bool = False,
         agent: Optional[str] = None,
         workspace_dir: Optional[str] = None,
+        continue_session: bool = False,
+        remote_agent: bool = False,
+        project: Optional[str] = None,
+        new_project: bool = False,
+        add_dirs: Optional[List[str]] = None,
+        disable_slash_commands: bool = False,
+        json_schema: Optional[str] = None,
+        print_timeout: Optional[str] = None,
+        session_settings: Optional[Any] = None,
         user_id: Optional[int] = None,
         username: Optional[str] = None,
         ip_address: Optional[str] = None
@@ -121,6 +130,9 @@ class AntigravityRunner:
                 "model": model,
                 "effort": effort,
                 "mode": mode,
+                "agent": agent,
+                "remote_agent": remote_agent,
+                "project": project,
                 "prompt": prompt[:200]
             }
         )
@@ -144,8 +156,31 @@ class AntigravityRunner:
             cmd.append("--sandbox")
         if agent:
             cmd.extend(["--agent", agent])
-        if conversation_id:
+        if continue_session:
+            cmd.append("--continue")
+        elif conversation_id:
             cmd.extend(["--conversation", conversation_id])
+        if remote_agent:
+            cmd.append("--remote-agent")
+        if project and project.strip():
+            cmd.extend(["--project", project.strip()])
+        if new_project:
+            cmd.append("--new-project")
+        if add_dirs:
+            for d in add_dirs:
+                if d and d.strip():
+                    cmd.extend(["--add-dir", d.strip()])
+        if disable_slash_commands:
+            cmd.append("--disable-slash-commands")
+        if json_schema and json_schema.strip():
+            cmd.extend(["--json-schema", json_schema.strip()])
+        if print_timeout and print_timeout.strip():
+            cmd.extend(["--print-timeout", print_timeout.strip()])
+        if session_settings:
+            if isinstance(session_settings, dict):
+                cmd.extend(["--settings", json.dumps(session_settings)])
+            elif isinstance(session_settings, str) and session_settings.strip():
+                cmd.extend(["--settings", session_settings.strip()])
             
         cmd.extend(["--print", prompt])
 

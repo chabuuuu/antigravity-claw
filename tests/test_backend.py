@@ -140,6 +140,15 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
         res6 = self.fetch('/api/terminal/input', method='POST', body='{}')
         self.assertEqual(res6.code, 401)
 
+        res7 = self.fetch('/api/settings/remote-control')
+        self.assertEqual(res7.code, 401)
+
+        res8 = self.fetch('/api/settings/changelog')
+        self.assertEqual(res8.code, 401)
+
+        res9 = self.fetch('/api/settings/plugins/validate', method='POST', body='{}')
+        self.assertEqual(res9.code, 401)
+
 if __name__ == "__main__":
     unittest.main()
 
