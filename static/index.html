@@ -214,6 +214,8 @@
                 <button id="btn-tree-refresh" class="btn-icon" title="Refresh files">🔄</button>
                 <button id="btn-tree-new-file" class="btn-icon" title="New file">📄+</button>
                 <button id="btn-tree-new-folder" class="btn-icon" title="New folder">📁+</button>
+                <button id="btn-tree-upload" class="btn-icon" title="Upload file to current folder">📤</button>
+                <input type="file" id="file-upload-input" style="display:none;">
                 <button id="btn-tree-delete" class="btn-icon" title="Delete selected">🗑️</button>
               </div>
             </div>
@@ -225,7 +227,10 @@
           <div class="editor-pane">
             <div class="editor-header">
               <span id="editor-filename" class="editor-filename">Select a file to view or edit</span>
-              <button id="btn-editor-save" class="btn-primary" style="padding: 4px 12px; font-size: 12px; display: none;">💾 Save (Ctrl+S)</button>
+              <div style="display: flex; gap: 8px;">
+                <button id="btn-editor-download" class="btn-secondary" style="padding: 4px 10px; font-size: 12px; display: none;">📥 Download</button>
+                <button id="btn-editor-save" class="btn-primary" style="padding: 4px 12px; font-size: 12px; display: none;">💾 Save (Ctrl+S)</button>
+              </div>
             </div>
             <textarea id="code-editor" placeholder="// File content will appear here..." spellcheck="false" readonly></textarea>
           </div>
@@ -260,6 +265,7 @@
             <button class="settings-tab-btn" data-tab="tab-plugins">Plugins</button>
             <button class="settings-tab-btn" data-tab="tab-rules">Custom Rules</button>
             <button class="settings-tab-btn" data-tab="tab-raw">Raw Config</button>
+            <button class="settings-tab-btn" data-tab="tab-webhooks">Webhooks & Alerts</button>
           </div>
 
           <!-- Tab 1: Models & Agents -->
@@ -337,6 +343,48 @@
                 <button id="btn-save-raw-config" class="btn-primary">Save JSON Config</button>
               </div>
               <textarea id="raw-config-textarea" style="width: 100%; height: 380px; background: #0b0e14; color: #7ee787; font-family: var(--font-mono); font-size: 13px; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);"></textarea>
+            </div>
+          </div>
+
+          <!-- Tab 6: Webhooks & Alerts -->
+          <div id="tab-webhooks" class="settings-tab-pane">
+            <div class="settings-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <div>
+                  <h3 class="card-title">Notification Channels & Alerts</h3>
+                  <p class="card-desc">Receive real-time notifications when autonomous tasks complete, fail, or trigger alarms.</p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <button id="btn-test-webhooks" class="btn-secondary">🔔 Send Test Alert</button>
+                  <button id="btn-save-webhooks" class="btn-primary">💾 Save Webhooks</button>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                  <label class="form-label">Telegram Bot Token</label>
+                  <input type="password" id="webhook-tg-token" class="form-input" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Telegram Chat ID</label>
+                  <input type="text" id="webhook-tg-chat" class="form-input" placeholder="-100123456789 or 987654321">
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-top: 14px;">
+                <label class="form-label">Discord Webhook URL</label>
+                <input type="text" id="webhook-discord-url" class="form-input" placeholder="https://discord.com/api/webhooks/...">
+              </div>
+
+              <div class="form-group" style="margin-top: 14px;">
+                <label class="form-label">Slack Webhook URL</label>
+                <input type="text" id="webhook-slack-url" class="form-input" placeholder="https://hooks.slack.com/services/...">
+              </div>
+
+              <div class="form-group" style="margin-top: 14px;">
+                <label class="form-label">Generic HTTP Webhook URL</label>
+                <input type="text" id="webhook-generic-url" class="form-input" placeholder="https://api.yourdomain.com/v1/agent-events">
+              </div>
             </div>
           </div>
         </div>

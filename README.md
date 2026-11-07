@@ -159,10 +159,23 @@ To stop the daemon:
 
 ---
 
-### Option 3: Docker Deployment
+### Option 3: Docker Deployment (GHCR or Local Build)
+
+Pull and run the prebuilt multi-arch image directly from GitHub Container Registry (GHCR):
 
 ```bash
 docker compose up -d
+```
+
+Or run via Docker CLI:
+```bash
+docker run -d \
+  --name antigravity_openclaw \
+  -p 8080:8080 \
+  -v ./data:/app/data \
+  -v ~/.gemini:/root/.gemini:ro \
+  -v $(pwd):/workspace \
+  ghcr.io/<your-username>/antigravity-openclaw:latest
 ```
 
 ---

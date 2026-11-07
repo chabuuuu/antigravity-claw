@@ -2,15 +2,17 @@ version: '3.8'
 
 services:
   openclaw:
-    build: .
+    # Use pre-built GHCR image, or comment out 'image' and uncomment 'build' for local build
+    image: ghcr.io/${GHCR_REPO:-google-antigravity/antigravity-openclaw}:latest
+    # build: .
     container_name: antigravity_openclaw
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${OPENCLAW_PORT:-8080}:8080"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
-      # Mount user's Gemini config so container can reach Antigravity settings and tokens
+      # Mount user's Gemini config so container can reach Antigravity credentials and CLI
       - ~/.gemini:/root/.gemini:ro
       # Mount host workspace
       - ${HOST_WORKSPACE:-./workspace}:/workspace
@@ -19,4 +21,5 @@ services:
       - OPENCLAW_PORT=8080
       - OPENCLAW_WORKSPACE=/workspace
       - AGY_BIN_PATH=/root/.gemini/bin/agy
+
 
