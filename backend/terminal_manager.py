@@ -71,6 +71,7 @@ class TerminalManager:
             process = await asyncio.create_subprocess_shell(
                 cmd_obj.command_line,
                 cwd=cmd_obj.cwd,
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT
             )
@@ -158,6 +159,23 @@ class TerminalManager:
     def unsubscribe(self, command_id: str, listener: Callable[[Dict[str, Any]], None]):
         if command_id in self.active_commands:
             self.active_commands[command_id].listeners.discard(listener)
+
+    async def send_input(self, command_id: str, data: str) -> bool:
+        """Sends stdin input to an interactive running terminal process."""
+        if command_id not in self.active_commands:
+            return False
+        cmd_obj = self.active_commands[command_id]
+        if cmd_obj.status != "RUNNING" or not cmd_obj.process or not cmd_obj.process.stdin:
+            return False
+        try:
+            if not data.endswith("\n"):
+                data += "\n"
+            cmd_obj.process.stdin.write(data.encode("utf-8"))
+            await cmd_obj.process.stdin.drain()
+            return True
+        except Exception as e:
+            logger.error("Error writing input to command %s: %s", command_id, e)
+            return False
 
     async def kill_command(self, command_id: str, user_id: Optional[int] = None, username: Optional[str] = None, ip_address: Optional[str] = None) -> bool:
         """Terminates a running terminal process."""

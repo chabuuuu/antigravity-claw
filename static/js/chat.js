@@ -37,6 +37,30 @@ const Chat = {
       this.style.height = "auto";
       this.style.height = Math.min(this.scrollHeight, 180) + "px";
     });
+
+    // Antigravity CLI Google Auth Modal events
+    const agyModalClose = document.getElementById("btn-agy-auth-close");
+    const agySubmitBtn = document.getElementById("btn-agy-auth-submit");
+    const agyCodeInput = document.getElementById("agy-auth-code-input");
+
+    if (agyModalClose) {
+      agyModalClose.addEventListener("click", () => {
+        document.getElementById("agy-auth-modal").style.display = "none";
+      });
+    }
+
+    if (agySubmitBtn) {
+      agySubmitBtn.addEventListener("click", () => this.submitAntigravityAuthCode());
+    }
+
+    if (agyCodeInput) {
+      agyCodeInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this.submitAntigravityAuthCode();
+        }
+      });
+    }
   },
 
   async loadConversations() {
@@ -272,14 +296,109 @@ const Chat = {
       this.scrollToBottom();
     } else if (event.type === "tool_call") {
       this.renderToolCard(event);
+    } else if (event.type === "antigravity_auth_required") {
+      this.showAntigravityAuthModal(event);
     } else if (event.type === "agent_result") {
       this.renderTokenUsage(event.usage, event.duration_seconds);
     } else if (event.type === "task_completed") {
       this.setExecutionState(false);
+      const modal = document.getElementById("agy-auth-modal");
+      if (modal && modal.style.display === "flex") {
+        modal.style.display = "none";
+      }
       this.loadConversations();
     } else if (event.type === "error") {
       this.appendErrorMessage(event.message);
       this.setExecutionState(false);
+    }
+  },
+
+  showAntigravityAuthModal(event) {
+    const modal = document.getElementById("agy-auth-modal");
+    const link = document.getElementById("agy-auth-url-link");
+    const statusMsg = document.getElementById("agy-auth-status-msg");
+    const input = document.getElementById("agy-auth-code-input");
+
+    this.pendingAuthTaskId = event.task_id || this.activeTaskId;
+    if (link && event.auth_url) {
+      link.href = event.auth_url;
+    }
+    if (statusMsg) {
+      statusMsg.innerText = "Waiting for authorization code...";
+      statusMsg.style.color = "var(--text-muted)";
+    }
+    if (input) {
+      input.value = "";
+    }
+    if (modal) {
+      modal.style.display = "flex";
+      setTimeout(() => input && input.focus(), 100);
+    }
+  },
+
+  async submitAntigravityAuthCode() {
+    const input = document.getElementById("agy-auth-code-input");
+    const statusMsg = document.getElementById("agy-auth-status-msg");
+    const submitBtn = document.getElementById("btn-agy-auth-submit");
+    const code = input ? input.value.trim() : "";
+
+    if (!code) {
+      if (statusMsg) {
+        statusMsg.innerText = "Please paste the authorization code first.";
+        statusMsg.style.color = "var(--accent-red)";
+      }
+      return;
+    }
+
+    if (statusMsg) {
+      statusMsg.innerText = "Submitting code to Antigravity CLI...";
+      statusMsg.style.color = "var(--accent-blue)";
+    }
+    if (submitBtn) submitBtn.disabled = true;
+
+    const taskId = this.pendingAuthTaskId || this.activeTaskId;
+
+    // Send via WebSocket
+    if (window.AppWS && window.AppWS.readyState === WebSocket.OPEN) {
+      window.AppWS.send(JSON.stringify({
+        action: "submit_antigravity_auth_code",
+        task_id: taskId,
+        code: code
+      }));
+    }
+
+    // Also send via REST API as reliable fallback
+    try {
+      const res = await fetch("/api/antigravity/auth/submit", {
+        method: "POST",
+        headers: Auth.getAuthHeaders(),
+        body: JSON.stringify({ task_id: taskId, code: code })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (statusMsg) {
+          statusMsg.innerText = "✅ Authorization submitted! Processing task...";
+          statusMsg.style.color = "#3fb950";
+        }
+        setTimeout(() => {
+          const modal = document.getElementById("agy-auth-modal");
+          if (modal) modal.style.display = "none";
+          if (submitBtn) submitBtn.disabled = false;
+        }, 1200);
+      } else {
+        if (statusMsg) {
+          statusMsg.innerText = data.error || "Failed to submit code. Try again.";
+          statusMsg.style.color = "var(--accent-red)";
+        }
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    } catch (err) {
+      console.error("Auth submit error:", err);
+      if (statusMsg) {
+        statusMsg.innerText = "Error submitting code: " + err.message;
+        statusMsg.style.color = "var(--accent-red)";
+      }
+      if (submitBtn) submitBtn.disabled = false;
     }
   },
 

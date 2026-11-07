@@ -270,6 +270,22 @@
 
           <!-- Tab 1: Models & Agents -->
           <div id="tab-models" class="settings-tab-pane active">
+            <div class="settings-card" id="settings-auth-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <div>
+                  <h3 class="card-title">Antigravity CLI Google Authentication</h3>
+                  <p class="card-desc">Authorization status for Google account token on the remote VPS / container.</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span id="agy-auth-status-badge" class="badge" style="background: rgba(139, 148, 158, 0.2); color: var(--text-muted); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">Checking...</span>
+                  <button id="btn-settings-agy-login" class="btn-primary" style="padding: 6px 14px; font-size: 12px;">Sign In with Google</button>
+                </div>
+              </div>
+              <div id="agy-auth-notice" style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+                Antigravity CLI requires an authenticated Google session to access Gemini models, run autonomous agents, and execute tools.
+              </div>
+            </div>
+
             <div class="settings-card">
               <h3 class="card-title">Antigravity Models</h3>
               <p class="card-desc">Models available in the local Antigravity installation (queried via <code>agy models</code>).</p>
@@ -522,6 +538,40 @@
       </div>
       <div class="modal-footer">
         <button class="btn-secondary modal-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Antigravity CLI Google Authentication -->
+  <div id="agy-auth-modal" class="modal-overlay">
+    <div class="modal-dialog" style="max-width: 540px;">
+      <div class="modal-header">
+        <span>🔐 Antigravity CLI Authentication</span>
+        <button class="btn-icon modal-close" id="btn-agy-auth-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="background: rgba(56, 139, 253, 0.12); border: 1px solid var(--accent-blue); padding: 12px; border-radius: 6px; font-size: 13px; color: #a5d6ff; line-height: 1.5; margin-bottom: 16px;">
+          <strong>Google Authorization Required:</strong><br>
+          Your remote Antigravity CLI on the VPS needs one-time Google authorization to run Gemini models and execute tools.
+        </div>
+        
+        <p style="font-size: 13px; color: var(--text-bright); margin-bottom: 8px;">
+          <strong>Step 1:</strong> Click below to open Google Sign-In in a new tab:
+        </p>
+        <a id="agy-auth-url-link" href="#" target="_blank" class="btn-primary" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; text-decoration: none; padding: 11px; margin-bottom: 16px; font-size: 13px;">
+          <span>🌐 Open Google Authorization Page</span>
+        </a>
+
+        <p style="font-size: 13px; color: var(--text-bright); margin-bottom: 8px;">
+          <strong>Step 2:</strong> Sign in with Google, copy the authorization code, and paste it below:
+        </p>
+        <div class="form-group">
+          <input type="text" id="agy-auth-code-input" class="form-input" placeholder="Paste 4/0A... authorization code here" autocomplete="off" style="font-family: var(--font-mono); font-size: 13px;">
+        </div>
+        <div id="agy-auth-status-msg" style="font-size: 12px; color: var(--text-muted); min-height: 18px; margin-top: 4px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-agy-auth-submit" class="btn-primary" style="padding: 8px 18px;">Submit Code & Authorize</button>
       </div>
     </div>
   </div>

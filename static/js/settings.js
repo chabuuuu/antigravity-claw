@@ -38,10 +38,17 @@ const Settings = {
     // Webhooks save & test
     document.getElementById("btn-save-webhooks").addEventListener("click", () => this.saveWebhooks());
     document.getElementById("btn-test-webhooks").addEventListener("click", () => this.testWebhooks());
+
+    // Antigravity CLI Login
+    const agyLoginBtn = document.getElementById("btn-settings-agy-login");
+    if (agyLoginBtn) {
+      agyLoginBtn.addEventListener("click", () => this.startAuthFlow());
+    }
   },
 
   async loadAll() {
     await Promise.all([
+      this.loadAuthStatus(),
       this.loadModels(),
       this.loadAgents(),
       this.loadMcpServers(),
@@ -50,6 +57,91 @@ const Settings = {
       this.loadRawConfig(),
       this.loadWebhooks()
     ]);
+  },
+
+  async loadAuthStatus() {
+    try {
+      const res = await fetch("/api/antigravity/auth/status", { headers: Auth.getAuthHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      const badge = document.getElementById("agy-auth-status-badge");
+      const btn = document.getElementById("btn-settings-agy-login");
+      const notice = document.getElementById("agy-auth-notice");
+
+      if (data.authenticated) {
+        if (badge) {
+          badge.innerText = "● Authenticated";
+          badge.style.background = "rgba(46, 160, 67, 0.2)";
+          badge.style.color = "#3fb950";
+        }
+        if (btn) {
+          btn.innerText = "Re-authenticate Google";
+          btn.className = "btn-secondary";
+        }
+        if (notice) {
+          notice.innerText = "✅ Antigravity CLI is authenticated with Google and ready to run autonomous agents.";
+          notice.style.color = "#3fb950";
+        }
+      } else {
+        if (badge) {
+          badge.innerText = "○ Login Required";
+          badge.style.background = "rgba(248, 81, 73, 0.2)";
+          badge.style.color = "#ff7b72";
+        }
+        if (btn) {
+          btn.innerText = "Sign In with Google";
+          btn.className = "btn-primary";
+        }
+        if (notice) {
+          notice.innerText = "⚠️ Antigravity CLI is not logged into Google yet. Click 'Sign In with Google' to authorize.";
+          notice.style.color = "var(--text-muted)";
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load Antigravity auth status:", e);
+    }
+  },
+
+  async startAuthFlow() {
+    const btn = document.getElementById("btn-settings-agy-login");
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = "Starting OAuth...";
+    }
+    try {
+      const res = await fetch("/api/antigravity/auth/start", {
+        method: "POST",
+        headers: Auth.getAuthHeaders()
+      });
+      const data = await res.json();
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = "Sign In with Google";
+      }
+
+      if (data.authenticated) {
+        alert("Antigravity CLI is already authenticated!");
+        this.loadAuthStatus();
+        return;
+      }
+
+      if (data.auth_url) {
+        // Open modal
+        if (window.Chat && typeof window.Chat.showAntigravityAuthModal === "function") {
+          window.Chat.showAntigravityAuthModal(data);
+        } else {
+          window.open(data.auth_url, "_blank");
+        }
+      } else {
+        alert(data.message || "Failed to retrieve Google OAuth URL. Please check VPS logs.");
+      }
+    } catch (e) {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = "Sign In with Google";
+      }
+      alert("Failed to initiate auth flow: " + e.message);
+    }
   },
 
   async loadModels() {

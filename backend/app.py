@@ -231,6 +231,35 @@ class AgentCancelHandler(BaseHandler):
         )
         self.write({"success": success})
 
+class AntigravityAuthStatusHandler(BaseHandler):
+    @require_auth
+    async def get(self):
+        status = await runner_instance.check_auth_status()
+        self.write(status)
+
+class AntigravityAuthStartHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        result = await runner_instance.start_auth_flow(
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        self.write(result)
+
+class AntigravityAuthSubmitHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        task_id = data.get("task_id", "")
+        code = data.get("code", "").strip()
+        if not code:
+            self.set_status(400)
+            self.finish({"error": "Authorization code cannot be empty."})
+            return
+        success = await runner_instance.submit_auth_code(task_id, code)
+        self.write({"success": success})
+
 class AgentTasksHandler(BaseHandler):
     @require_auth
     def get(self):
@@ -572,6 +601,15 @@ class TerminalKillHandler(BaseHandler):
         )
         self.write({"success": success})
 
+class TerminalInputHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        cmd_id = data.get("command_id", "")
+        input_data = data.get("data", "")
+        success = await terminal_manager_instance.send_input(cmd_id, input_data)
+        self.write({"success": success})
+
 class TerminalHistoryHandler(BaseHandler):
     @require_auth
     def get(self):
@@ -730,7 +768,7 @@ class StreamWebSocketHandler(tornado.websocket.WebSocketHandler):
         # If not authenticated yet, wait for 'auth' message
         self.write_message(json.dumps({"type": "auth_required"}))
 
-    def on_message(self, message):
+    async def on_message(self, message):
         try:
             data = json.loads(message)
             msg_type = data.get("action") or data.get("type")
@@ -770,6 +808,16 @@ class StreamWebSocketHandler(tornado.websocket.WebSocketHandler):
                     self.subscribed_commands.add(command_id)
                     terminal_manager_instance.subscribe(command_id, self._send_terminal_event)
                     self.write_message(json.dumps({"type": "subscribed_terminal", "command_id": command_id}))
+
+            elif msg_type == "submit_antigravity_auth_code":
+                task_id = data.get("task_id") or data.get("conversation_id", "")
+                code = data.get("code", "")
+                await runner_instance.submit_auth_code(task_id, code)
+
+            elif msg_type == "terminal_input":
+                command_id = data.get("command_id", "")
+                input_data = data.get("data", "")
+                await terminal_manager_instance.send_input(command_id, input_data)
 
         except Exception as e:
             logger.error("WebSocket message handling error: %s", e)
@@ -817,6 +865,9 @@ def make_app():
         (r"/api/agent/tasks", AgentTasksHandler),
         (r"/api/agent/conversations", AgentConversationsHandler),
         (r"/api/agent/conversations/([^/]+)", AgentConversationDetailHandler),
+        (r"/api/antigravity/auth/status", AntigravityAuthStatusHandler),
+        (r"/api/antigravity/auth/start", AntigravityAuthStartHandler),
+        (r"/api/antigravity/auth/submit", AntigravityAuthSubmitHandler),
         
         # Antigravity Settings Routes
         (r"/api/settings/models", SettingsModelsHandler),
@@ -840,6 +891,7 @@ def make_app():
         (r"/api/terminal/execute", TerminalExecuteHandler),
         (r"/api/terminal/kill", TerminalKillHandler),
         (r"/api/terminal/history", TerminalHistoryHandler),
+        (r"/api/terminal/input", TerminalInputHandler),
         
         # Schedules Routes
         (r"/api/schedules", SchedulesHandler),

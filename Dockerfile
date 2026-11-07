@@ -8,6 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
+# Get official docker CLI binary for containerized tool execution
+COPY --from=docker:cli /usr/local/bin/docker /usr/local/bin/docker
+
 WORKDIR /app
 
 # Copy dependency requirements

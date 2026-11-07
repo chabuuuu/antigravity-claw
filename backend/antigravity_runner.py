@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import signal
 import uuid
 from datetime import datetime, timezone
@@ -37,6 +38,10 @@ class ActiveTask:
         self.full_response = ""
         self.total_usage: Dict[str, Any] = {}
         self.steps: List[Dict[str, Any]] = []
+        self.auth_required = False
+        self.auth_url: Optional[str] = None
+        self.stderr_buffer = ""
+        self.pty_master_fd: Optional[int] = None
 
 class AntigravityRunner:
     def __init__(self):
@@ -133,7 +138,7 @@ class AntigravityRunner:
             cmd.extend(["--model", model])
         if effort:
             cmd.extend(["--effort", effort])
-        if mode:
+        if mode and mode not in ("auto", "default", ""):
             cmd.extend(["--mode", mode])
         if sandbox:
             cmd.append("--sandbox")
@@ -148,6 +153,22 @@ class AntigravityRunner:
         asyncio.create_task(self._execute_process(task, cmd, cwd, ip_address))
         return task_id
 
+    def _check_for_auth_prompt(self, task: ActiveTask, line: str):
+        """Scans process output line for Google OAuth authorization URLs."""
+        match = re.search(r'(https://accounts\.google\.com/o/oauth2/auth[^\s\x1b\r\n\t]+)', line)
+        if match and not task.auth_required:
+            auth_url = match.group(1).rstrip('.')
+            task.auth_required = True
+            task.auth_url = auth_url
+            logger.info("Detected Antigravity OAuth prompt for task %s: %s", task.task_id, auth_url)
+            self._broadcast(task, {
+                "type": "antigravity_auth_required",
+                "task_id": task.task_id,
+                "conversation_id": task.conversation_id,
+                "auth_url": auth_url,
+                "message": "Antigravity CLI requires Google Authorization. Please visit the link to sign in, then paste your authorization code."
+            })
+
     async def _execute_process(self, task: ActiveTask, cmd: List[str], cwd: str, ip_address: Optional[str]):
         logger.info("Executing agy command: %s (cwd=%s)", " ".join(cmd), cwd)
         env = os.environ.copy()
@@ -157,6 +178,7 @@ class AntigravityRunner:
                 *cmd,
                 cwd=cwd,
                 env=env,
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -168,34 +190,43 @@ class AntigravityRunner:
                 cursor.execute("UPDATE tasks SET pid = ? WHERE task_id = ?;", (process.pid, task.task_id))
                 conn.commit()
 
-            # Stream stdout line by line
-            async for raw_line in process.stdout:
-                line = raw_line.decode("utf-8", errors="replace").strip()
-                if not line:
-                    continue
-                
-                try:
-                    event_data = json.loads(line)
-                    self._handle_stream_event(task, event_data)
-                except json.JSONDecodeError:
-                    # Non-JSON output (CLI debug message or banner)
-                    self._broadcast(task, {
-                        "type": "cli_output",
-                        "task_id": task.task_id,
-                        "text": line
-                    })
+            async def _read_stdout():
+                async for raw_line in process.stdout:
+                    line = raw_line.decode("utf-8", errors="replace").strip()
+                    if not line:
+                        continue
+                    self._check_for_auth_prompt(task, line)
+                    try:
+                        event_data = json.loads(line)
+                        self._handle_stream_event(task, event_data)
+                    except json.JSONDecodeError:
+                        self._broadcast(task, {
+                            "type": "cli_output",
+                            "task_id": task.task_id,
+                            "text": line
+                        })
 
+            async def _read_stderr():
+                async for raw_line in process.stderr:
+                    line = raw_line.decode("utf-8", errors="replace").strip()
+                    if not line:
+                        continue
+                    self._check_for_auth_prompt(task, line)
+                    task.stderr_buffer += line + "\n"
+
+            # Stream both stdout and stderr concurrently without deadlock
+            await asyncio.gather(_read_stdout(), _read_stderr())
             await process.wait()
             task.exit_code = process.returncode
-            
-            # Read any leftover stderr
-            stderr_data = await process.stderr.read()
-            stderr_text = stderr_data.decode("utf-8", errors="replace").strip()
-            if stderr_text and task.exit_code != 0:
+
+            if task.stderr_buffer and task.exit_code != 0:
+                err_msg = task.stderr_buffer.strip()
+                if task.auth_required and ("timed out" in err_msg.lower() or "not authenticated" in err_msg.lower()):
+                    err_msg = "Antigravity CLI authentication timed out. Please sign in via Antigravity Config."
                 self._broadcast(task, {
                     "type": "error",
                     "task_id": task.task_id,
-                    "message": stderr_text
+                    "message": err_msg
                 })
 
             if task.status == "RUNNING":
@@ -381,6 +412,176 @@ class AntigravityRunner:
             ip_address=ip_address
         )
         return True
+
+    async def check_auth_status(self) -> Dict[str, Any]:
+        """Checks if agy binary is currently authenticated with Google."""
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                AGY_BIN_PATH,
+                "models",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await proc.communicate()
+            out_text = (stdout + stderr).decode("utf-8", errors="replace")
+            is_auth = (proc.returncode == 0) and ("Error: Please sign in" not in out_text) and ("You are not logged into Antigravity" not in out_text)
+            return {
+                "authenticated": is_auth,
+                "output": out_text[:300]
+            }
+        except Exception as e:
+            return {"authenticated": False, "error": str(e)}
+
+    async def submit_auth_code(self, identifier: str, code: str) -> bool:
+        """Submits an OAuth authorization code to a running agy process waiting for auth."""
+        clean_code = code.strip()
+        if not clean_code:
+            return False
+
+        target_task = None
+        for t in self.active_tasks.values():
+            if t.task_id == identifier or t.conversation_id == identifier:
+                if t.status == "RUNNING":
+                    target_task = t
+                    break
+
+        if not target_task:
+            for t in reversed(list(self.active_tasks.values())):
+                if t.status == "RUNNING" and t.auth_required:
+                    target_task = t
+                    break
+
+        if not target_task:
+            logger.warning("No running task found waiting for auth code (identifier: %s)", identifier)
+            return False
+
+        # If process was spawned with PTY:
+        if target_task.pty_master_fd is not None:
+            try:
+                os.write(target_task.pty_master_fd, (clean_code + "\n").encode("utf-8"))
+                logger.info("Submitted auth code via PTY to agy task %s", target_task.task_id)
+                return True
+            except Exception as e:
+                logger.error("Error writing auth code to PTY: %s", e)
+                return False
+
+        # Otherwise via stdin pipe:
+        if target_task.process and target_task.process.stdin:
+            try:
+                target_task.process.stdin.write(f"{clean_code}\n".encode("utf-8"))
+                try:
+                    json_payload = json.dumps({"event": "auth_code", "authCode": clean_code, "code": clean_code}) + "\n"
+                    target_task.process.stdin.write(json_payload.encode("utf-8"))
+                except Exception:
+                    pass
+                await target_task.process.stdin.drain()
+                logger.info("Submitted auth code via stdin to agy task %s", target_task.task_id)
+                return True
+            except Exception as e:
+                logger.error("Failed to write auth code to stdin: %s", e)
+                return False
+
+        return False
+
+    async def _execute_pty_auth_process(self, task: ActiveTask, cmd: List[str], cwd: str, ip_address: Optional[str]):
+        """Runs agy inside a pseudo-terminal (PTY) to satisfy controlling terminal check for OAuth."""
+        import pty
+        master, slave = pty.openpty()
+        task.pty_master_fd = master
+
+        try:
+            logger.info("Executing agy auth in PTY: %s (cwd=%s)", " ".join(cmd), cwd)
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=cwd,
+                stdin=slave,
+                stdout=slave,
+                stderr=slave,
+                close_fds=True
+            )
+            task.process = process
+            os.close(slave)  # Close child end in parent
+
+            loop = asyncio.get_running_loop()
+
+            def _read_from_pty():
+                try:
+                    data = os.read(master, 1024)
+                    if data:
+                        text = data.decode("utf-8", errors="replace")
+                        self._check_for_auth_prompt(task, text)
+                        self._broadcast(task, {
+                            "type": "cli_output",
+                            "task_id": task.task_id,
+                            "text": text
+                        })
+                except OSError:
+                    pass
+
+            loop.add_reader(master, _read_from_pty)
+            await process.wait()
+            task.exit_code = process.returncode
+
+            try:
+                loop.remove_reader(master)
+            except Exception:
+                pass
+
+            if task.exit_code == 0:
+                task.status = "COMPLETED"
+                logger.info("Antigravity OAuth process exited successfully.")
+            else:
+                task.status = "FAILED"
+
+        except Exception as e:
+            logger.error("Error in PTY auth execution: %s", e)
+            task.status = "FAILED"
+        finally:
+            if task.pty_master_fd is not None:
+                try:
+                    os.close(task.pty_master_fd)
+                except Exception:
+                    pass
+                task.pty_master_fd = None
+
+    async def start_auth_flow(self, user_id: Optional[int] = None, username: Optional[str] = None, ip_address: Optional[str] = None) -> Dict[str, Any]:
+        """Launches an agy process with PTY to trigger Google OAuth and returns the generated URL."""
+        status = await self.check_auth_status()
+        if status.get("authenticated"):
+            return {"authenticated": True, "message": "Antigravity CLI is already authenticated."}
+
+        task_id = str(uuid.uuid4())
+        conv_id = f"auth-{task_id[:8]}"
+        task = ActiveTask(task_id, conv_id, "Sign in to Antigravity CLI", user_id, username)
+        self.active_tasks[task_id] = task
+
+        cmd = [AGY_BIN_PATH, "-p", "Authentication probe"]
+        cwd = str(DEFAULT_WORKSPACE)
+
+        auth_event = asyncio.Event()
+
+        def _on_evt(evt):
+            if evt.get("type") == "antigravity_auth_required":
+                auth_event.set()
+
+        self.subscribe(task_id, _on_evt)
+        asyncio.create_task(self._execute_pty_auth_process(task, cmd, cwd, ip_address))
+
+        try:
+            await asyncio.wait_for(auth_event.wait(), timeout=10.0)
+            return {
+                "authenticated": False,
+                "task_id": task_id,
+                "conversation_id": conv_id,
+                "auth_url": task.auth_url
+            }
+        except asyncio.TimeoutError:
+            return {
+                "authenticated": False,
+                "task_id": task_id,
+                "auth_url": task.auth_url,
+                "message": "Waiting for OAuth URL timed out. Please check logs."
+            }
 
 # Global singleton runner
 runner_instance = AntigravityRunner()

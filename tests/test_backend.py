@@ -133,6 +133,13 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
         res4 = self.fetch('/api/health')
         self.assertEqual(res4.code, 200)
 
+        # Secured endpoints require auth
+        res5 = self.fetch('/api/antigravity/auth/status')
+        self.assertEqual(res5.code, 401)
+
+        res6 = self.fetch('/api/terminal/input', method='POST', body='{}')
+        self.assertEqual(res6.code, 401)
+
 if __name__ == "__main__":
     unittest.main()
 

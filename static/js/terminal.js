@@ -42,20 +42,45 @@ const Terminal = {
 
   async execute() {
     const input = document.getElementById("terminal-cmd-input");
-    const cmd = input.value.trim();
-    if (!cmd) return;
+    const cmd = input.value;
+    if (!cmd.trim() && !this.activeCommandId) return;
 
-    this.history.push(cmd);
+    // If a process is currently running interactively, send stdin input
+    if (this.activeCommandId) {
+      input.value = "";
+      this.appendOutput(cmd + "\n");
+      try {
+        if (window.AppWS && window.AppWS.readyState === WebSocket.OPEN) {
+          window.AppWS.send(JSON.stringify({
+            action: "terminal_input",
+            command_id: this.activeCommandId,
+            data: cmd + "\n"
+          }));
+        } else {
+          await fetch("/api/terminal/input", {
+            method: "POST",
+            headers: Auth.getAuthHeaders(),
+            body: JSON.stringify({ command_id: this.activeCommandId, data: cmd + "\n" })
+          });
+        }
+      } catch (e) {
+        this.appendOutput(`[Input Error: ${e.message}]\n`);
+      }
+      return;
+    }
+
+    const trimmedCmd = cmd.trim();
+    this.history.push(trimmedCmd);
     this.historyIndex = -1;
     input.value = "";
 
-    this.appendOutput(`\nuser@vps:~$ ${cmd}\n`);
+    this.appendOutput(`\nuser@vps:~$ ${trimmedCmd}\n`);
 
     try {
       const res = await fetch("/api/terminal/execute", {
         method: "POST",
         headers: Auth.getAuthHeaders(),
-        body: JSON.stringify({ command: cmd })
+        body: JSON.stringify({ command: trimmedCmd })
       });
       const data = await res.json();
       if (!res.ok) {

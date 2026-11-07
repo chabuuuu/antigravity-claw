@@ -12,10 +12,15 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
-      # Mount user's Gemini config so container can reach Antigravity credentials and CLI
-      - ~/.gemini:/root/.gemini:ro
+      - ./backend:/app/backend:ro
+      - ./static:/app/static:ro
+      # Mount user's Gemini config & OAuth credentials with read-write access
+      - ~/.gemini:/root/.gemini:rw
+      - ~/.config/antigravity:/root/.config/antigravity:rw
       # Mount host workspace
       - ${HOST_WORKSPACE:-./workspace}:/workspace
+      # Optional: Mount docker socket if using docker-based MCP tool servers
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - OPENCLAW_HOST=0.0.0.0
       - OPENCLAW_PORT=8080
