@@ -25,7 +25,8 @@ logger = logging.getLogger("openclaw.antigravity_runner")
 class ActiveTask:
     def __init__(self, task_id: str, conversation_id: str, prompt: str, user_id: Optional[int], username: Optional[str]):
         self.task_id = task_id
-        self.conversation_id = conversation_id
+        self.conversation_id = conversation_id  # OpenClaw session conversation ID
+        self.agy_conversation_id: Optional[str] = None  # Underlying Antigravity CLI conversation ID
         self.prompt = prompt
         self.user_id = user_id
         self.username = username
@@ -85,6 +86,16 @@ class AntigravityRunner:
         
         task = ActiveTask(task_id, conv_id, prompt, user_id, username)
         self.active_tasks[task_id] = task
+
+        # Check for existing agy_conversation_id if continuing an existing session
+        existing_agy_conv_id = None
+        if conversation_id:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT agy_conversation_id FROM conversations WHERE conversation_id = ?;", (conversation_id,))
+                row = cursor.fetchone()
+                if row and row["agy_conversation_id"]:
+                    existing_agy_conv_id = row["agy_conversation_id"]
 
         # Ensure conversation exists in DB
         with get_db_connection() as conn:
@@ -176,8 +187,8 @@ class AntigravityRunner:
             cmd.extend(["--agent", agent])
         if continue_session:
             cmd.append("--continue")
-        elif conversation_id:
-            cmd.extend(["--conversation", conversation_id])
+        elif existing_agy_conv_id:
+            cmd.extend(["--conversation", existing_agy_conv_id])
         if remote_agent:
             cmd.append("--remote-agent")
         if project and project.strip():
@@ -309,13 +320,33 @@ class AntigravityRunner:
                 WHERE task_id = ?;
                 """, (task.status, task.completed_at, task.exit_code, task.task_id))
 
-                if task.full_response:
+                if task.agy_conversation_id:
+                    cursor.execute("""
+                    UPDATE conversations
+                    SET agy_conversation_id = ?, updated_at = ?
+                    WHERE conversation_id = ?;
+                    """, (task.agy_conversation_id, task.completed_at, task.conversation_id))
+
+                # Determine assistant content to persist
+                assistant_content = task.full_response.strip()
+                if not assistant_content:
+                    if task.status == "FAILED" or (task.exit_code is not None and task.exit_code != 0):
+                        err = task.stderr_buffer.strip() or "Task execution failed."
+                        assistant_content = f"❌ Error: {err}"
+                    elif task.status == "CANCELLED":
+                        assistant_content = "⚠️ Task was cancelled by user."
+                    elif task.steps:
+                        tool_names = [s.get("tool_name") for s in task.steps if s.get("tool_name")]
+                        if tool_names:
+                            assistant_content = f"Executed tools: {', '.join(tool_names)}."
+
+                if assistant_content:
                     cursor.execute("""
                     INSERT INTO conversation_messages (conversation_id, role, content, metadata_json, created_at)
                     VALUES (?, 'assistant', ?, ?, ?);
                     """, (
                         task.conversation_id,
-                        task.full_response,
+                        assistant_content,
                         json.dumps({"usage": task.total_usage, "steps": len(task.steps)}),
                         task.completed_at
                     ))
@@ -327,7 +358,7 @@ class AntigravityRunner:
                 "conversation_id": task.conversation_id,
                 "status": task.status,
                 "exit_code": task.exit_code,
-                "full_response": task.full_response,
+                "full_response": assistant_content or task.full_response,
                 "usage": task.total_usage
             })
 
@@ -357,8 +388,18 @@ class AntigravityRunner:
         """Parses Antigravity stream-json event and dispatches to listeners."""
         event_type = data.get("event")
         
+        # Track agy's internal conversation ID without overwriting OpenClaw's session conversation ID
+        agy_cid = data.get("conversation_id")
+        if not agy_cid and "init" in data:
+            agy_cid = data["init"].get("conversation_id")
+        elif not agy_cid and "step_update" in data:
+            agy_cid = data["step_update"].get("conversation_id")
+        elif not agy_cid and "result" in data:
+            agy_cid = data["result"].get("conversation_id")
+        if agy_cid:
+            task.agy_conversation_id = agy_cid
+
         if event_type == "init":
-            task.conversation_id = data.get("conversation_id", task.conversation_id)
             init_payload = data.get("init", {})
             self._broadcast(task, {
                 "type": "agent_init",
@@ -411,6 +452,10 @@ class AntigravityRunner:
         elif event_type == "result":
             res = data.get("result", {})
             task.total_usage = res.get("usage", {})
+            final_res = res.get("response", "")
+            if final_res and (not task.full_response or len(final_res) > len(task.full_response)):
+                task.full_response = final_res
+
             self._broadcast(task, {
                 "type": "agent_result",
                 "task_id": task.task_id,

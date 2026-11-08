@@ -83,6 +83,7 @@ def init_db():
             model TEXT,
             effort TEXT,
             mode TEXT,
+            agy_conversation_id TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             user_id INTEGER,
@@ -90,6 +91,12 @@ def init_db():
         );
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);")
+
+        # Migration: Ensure agy_conversation_id exists on existing database
+        cursor.execute("PRAGMA table_info(conversations);")
+        columns = [row["name"] for row in cursor.fetchall()]
+        if "agy_conversation_id" not in columns:
+            cursor.execute("ALTER TABLE conversations ADD COLUMN agy_conversation_id TEXT;")
 
         # 5. Conversation messages & steps table
         cursor.execute("""

@@ -595,14 +595,34 @@ const Chat = {
 
   renderMarkdown(text) {
     if (!text) return "";
-    let html = this.escapeHtml(text);
-    // Simple inline backticks
-    html = html.replace(/`([^`]+)`/g, '<code style="background: var(--bg-tertiary); padding: 2px 4px; border-radius: 4px; font-family: var(--font-mono);">$1</code>');
-    // Triple backtick blocks
-    html = html.replace(/```([\s\S]*?)```/g, '<pre style="background: #0b0e14; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 8px 0; font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--border-color);"><code>$1</code></pre>');
-    // Bold
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    return html.replace(/\n/g, '<br>');
+    // Preserve code blocks before escaping
+    const codeBlocks = [];
+    let processed = text.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, (match, lang, code) => {
+      const idx = codeBlocks.length;
+      codeBlocks.push({ lang, code: this.escapeHtml(code.trim()) });
+      return `__CODE_BLOCK_${idx}__`;
+    });
+
+    // Escape prose HTML
+    processed = this.escapeHtml(processed);
+
+    // Bold & Italics
+    processed = processed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    processed = processed.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+    // Inline code
+    processed = processed.replace(/`([^`]+)`/g, '<code style="background: var(--bg-tertiary); padding: 2px 5px; border-radius: 4px; font-family: var(--font-mono); font-size: 13px; color: #79c0ff;">$1</code>');
+
+    // Newlines to <br>
+    processed = processed.replace(/\n/g, '<br>');
+
+    // Restore code blocks with syntax styled box
+    codeBlocks.forEach((item, idx) => {
+      const blockHtml = `<pre style="background: #0b0e14; padding: 12px 14px; border-radius: 6px; overflow-x: auto; margin: 8px 0; font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--border-color); color: #c9d1d9; line-height: 1.45;"><code>${item.code}</code></pre>`;
+      processed = processed.replace(`__CODE_BLOCK_${idx}__`, blockHtml);
+    });
+
+    return processed;
   },
 
   escapeHtml(str) {
