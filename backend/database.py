@@ -92,11 +92,13 @@ def init_db():
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);")
 
-        # Migration: Ensure agy_conversation_id exists on existing database
+        # Migration: Ensure agy_conversation_id and project exist on existing database
         cursor.execute("PRAGMA table_info(conversations);")
-        columns = [row["name"] for row in cursor.fetchall()]
-        if "agy_conversation_id" not in columns:
+        conv_columns = [row["name"] for row in cursor.fetchall()]
+        if "agy_conversation_id" not in conv_columns:
             cursor.execute("ALTER TABLE conversations ADD COLUMN agy_conversation_id TEXT;")
+        if "project" not in conv_columns:
+            cursor.execute("ALTER TABLE conversations ADD COLUMN project TEXT DEFAULT 'Default';")
 
         # 5. Conversation messages & steps table
         cursor.execute("""
@@ -132,6 +134,24 @@ def init_db():
         );
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);")
+
+        # Migration: Ensure tasks table has analytics columns
+        cursor.execute("PRAGMA table_info(tasks);")
+        task_columns = [row["name"] for row in cursor.fetchall()]
+        if "project" not in task_columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN project TEXT DEFAULT 'Default';")
+        if "duration_seconds" not in task_columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN duration_seconds REAL DEFAULT 0.0;")
+        if "input_tokens" not in task_columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN input_tokens INTEGER DEFAULT 0;")
+        if "output_tokens" not in task_columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN output_tokens INTEGER DEFAULT 0;")
+        if "thinking_tokens" not in task_columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN thinking_tokens INTEGER DEFAULT 0;")
+        if "total_tokens" not in task_columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN total_tokens INTEGER DEFAULT 0;")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_created ON tasks(created_at DESC);")
 
         # 7. Autonomous Schedules & Cron table
         cursor.execute("""

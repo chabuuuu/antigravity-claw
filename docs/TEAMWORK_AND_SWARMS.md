@@ -107,3 +107,4 @@ Returns the structured list of installed skills discovered from the Antigravity 
 
 ### `GET /api/antigravity/skills/{skill_name}`
 Returns the full documentation (`SKILL.md` markdown content) and metadata for the specified skill.
+

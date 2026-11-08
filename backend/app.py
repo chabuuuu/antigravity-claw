@@ -34,6 +34,7 @@ from backend.workspace_manager import workspace_manager_instance
 from backend.terminal_manager import terminal_manager_instance
 from backend.scheduler import scheduler_instance
 from backend.webhook_notifier import notifier_instance
+from backend.analytics_manager import analytics_manager_instance
 
 logging.basicConfig(
     level=logging.INFO,
@@ -313,6 +314,89 @@ class AntigravitySkillDetailHandler(BaseHandler):
             self.finish({"error": f"Skill '{skill_name}' not found."})
             return
         self.write({"skill": detail})
+
+class AnalyticsSummaryHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        project = self.get_argument("project", "all")
+        time_range = self.get_argument("range", "7d")
+        data = analytics_manager_instance.get_summary(project, time_range)
+        self.write(data)
+
+class AnalyticsExportHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        fmt = self.get_argument("format", "csv").lower()
+        project = self.get_argument("project", "all")
+        time_range = self.get_argument("range", "30d")
+        data = analytics_manager_instance.get_summary(project, time_range)
+
+        if fmt == "json":
+            self.set_header("Content-Type", "application/json; charset=utf-8")
+            self.set_header("Content-Disposition", "attachment; filename=openclaw_analytics_report.json")
+            self.write(json.dumps(data, indent=2))
+            return
+
+        # CSV format
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Section 1: KPI Summary
+        writer.writerow(["=== ANTIGRAVITY OPENCLAW ANALYTICS REPORT ==="])
+        writer.writerow(["Generated At", datetime.now(timezone.utc).isoformat()])
+        writer.writerow(["Filter Project", project])
+        writer.writerow(["Time Range", time_range])
+        writer.writerow([])
+        writer.writerow(["Metric", "Value"])
+        kpis = data.get("kpis", {})
+        writer.writerow(["Total Tasks", kpis.get("total_tasks")])
+        writer.writerow(["Completed Tasks", kpis.get("completed_tasks")])
+        writer.writerow(["Failed Tasks", kpis.get("failed_tasks")])
+        writer.writerow(["Success Rate (%)", f"{kpis.get('success_rate')}%"])
+        writer.writerow(["Total Tokens", kpis.get("total_tokens")])
+        writer.writerow(["Input Tokens", kpis.get("input_tokens")])
+        writer.writerow(["Output Tokens", kpis.get("output_tokens")])
+        writer.writerow(["Thinking / Reasoning Tokens", kpis.get("thinking_tokens")])
+        writer.writerow(["Deep Thinking Ratio (%)", f"{kpis.get('thinking_ratio')}%"])
+        writer.writerow(["Average Turnaround (seconds)", kpis.get("avg_duration_seconds")])
+        writer.writerow([])
+
+        # Section 2: Projects Matrix
+        writer.writerow(["=== PROJECTS PROGRESS MATRIX ==="])
+        writer.writerow(["Project Name", "Status", "Progress (%)", "Completed Tasks", "Total Tasks", "Total Tokens", "Thinking Tokens", "Avg Duration (s)", "Last Active"])
+        for p in data.get("projects", []):
+            writer.writerow([
+                p.get("name"),
+                p.get("status"),
+                f"{p.get('progress_percent')}%",
+                p.get("completed_tasks"),
+                p.get("total_tasks"),
+                p.get("total_tokens"),
+                p.get("thinking_tokens"),
+                p.get("avg_duration"),
+                p.get("last_activity")
+            ])
+        writer.writerow([])
+
+        # Section 3: Recent Task Executions
+        writer.writerow(["=== RECENT TASK EXECUTIONS ==="])
+        writer.writerow(["Task ID", "Project", "Title", "Status", "Duration (s)", "Total Tokens", "Thinking Tokens", "Completed At"])
+        for t in data.get("recent_tasks", []):
+            writer.writerow([
+                t.get("task_id"),
+                t.get("project"),
+                t.get("title"),
+                t.get("status"),
+                t.get("duration_seconds"),
+                t.get("total_tokens"),
+                t.get("thinking_tokens"),
+                t.get("completed_at") or t.get("created_at")
+            ])
+
+        csv_content = output.getvalue()
+        self.set_header("Content-Type", "text/csv; charset=utf-8")
+        self.set_header("Content-Disposition", "attachment; filename=openclaw_analytics_report.csv")
+        self.write(csv_content)
 
 class AgentTasksHandler(BaseHandler):
     @require_auth
@@ -1042,6 +1126,10 @@ def make_app():
         (r"/api/antigravity/commands", AntigravityCommandsHandler),
         (r"/api/antigravity/skills", AntigravitySkillsHandler),
         (r"/api/antigravity/skills/([^/]+)", AntigravitySkillDetailHandler),
+        
+        # Analytics & Reporting Routes
+        (r"/api/analytics/summary", AnalyticsSummaryHandler),
+        (r"/api/analytics/export", AnalyticsExportHandler),
         
         # Antigravity Settings Routes
         (r"/api/settings/models", SettingsModelsHandler),

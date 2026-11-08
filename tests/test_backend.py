@@ -132,6 +132,16 @@ class TestOpenClawBackend(unittest.TestCase):
 
         asyncio.run(run_checks())
 
+    def test_06_analytics_summary(self):
+        from backend.analytics_manager import analytics_manager_instance
+        data = analytics_manager_instance.get_summary()
+        self.assertTrue(data["success"])
+        self.assertIn("kpis", data)
+        self.assertIn("timeline", data)
+        self.assertIn("projects", data)
+        self.assertIn("total_tokens", data["kpis"])
+        self.assertIsInstance(data["projects"], list)
+
 import tornado.testing
 from backend.app import make_app
 

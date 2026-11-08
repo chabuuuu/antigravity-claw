@@ -30,12 +30,14 @@ class ActiveTask:
         self.prompt = prompt
         self.user_id = user_id
         self.username = username
+        self.project = "Default"
         self.process: Optional[asyncio.subprocess.Process] = None
         self.status = "RUNNING"  # RUNNING, COMPLETED, FAILED, CANCELLED
         self.listeners: Set[Callable[[Dict[str, Any]], None]] = set()
         self.created_at = datetime.now(timezone.utc).isoformat()
         self.completed_at: Optional[str] = None
         self.exit_code: Optional[int] = None
+        self.duration_seconds: float = 0.0
         self.full_response = ""
         self.total_usage: Dict[str, Any] = {}
         self.steps: List[Dict[str, Any]] = []
@@ -84,7 +86,9 @@ class AntigravityRunner:
         task_id = str(uuid.uuid4())
         conv_id = conversation_id or str(uuid.uuid4())
         
+        clean_project = (project or "Default").strip() or "Default"
         task = ActiveTask(task_id, conv_id, prompt, user_id, username)
+        task.project = clean_project
         self.active_tasks[task_id] = task
 
         # Check for existing agy_conversation_id if continuing an existing session
@@ -102,9 +106,9 @@ class AntigravityRunner:
             cursor = conn.cursor()
             now_iso = datetime.now(timezone.utc).isoformat()
             cursor.execute("""
-            INSERT INTO conversations (conversation_id, title, model, effort, mode, created_at, updated_at, user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(conversation_id) DO UPDATE SET updated_at = excluded.updated_at;
+            INSERT INTO conversations (conversation_id, title, model, effort, mode, created_at, updated_at, user_id, project)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(conversation_id) DO UPDATE SET updated_at = excluded.updated_at, project = excluded.project;
             """, (
                 conv_id,
                 prompt[:60].replace("\n", " "),
@@ -113,7 +117,8 @@ class AntigravityRunner:
                 mode or "auto",
                 now_iso,
                 now_iso,
-                user_id
+                user_id,
+                clean_project
             ))
             
             # Record user message
@@ -124,9 +129,9 @@ class AntigravityRunner:
 
             # Record task
             cursor.execute("""
-            INSERT INTO tasks (task_id, title, prompt, status, created_at, conversation_id, user_id)
-            VALUES (?, ?, ?, 'RUNNING', ?, ?, ?);
-            """, (task_id, prompt[:60], prompt, now_iso, conv_id, user_id))
+            INSERT INTO tasks (task_id, title, prompt, status, created_at, conversation_id, user_id, project)
+            VALUES (?, ?, ?, 'RUNNING', ?, ?, ?, ?);
+            """, (task_id, prompt[:60], prompt, now_iso, conv_id, user_id, clean_project))
             conn.commit()
 
         log_audit(
@@ -310,15 +315,20 @@ class AntigravityRunner:
             })
         finally:
             task.completed_at = datetime.now(timezone.utc).isoformat()
+            input_tok = int(task.total_usage.get("input_tokens") or 0)
+            output_tok = int(task.total_usage.get("output_tokens") or 0)
+            thinking_tok = int(task.total_usage.get("thinking_tokens") or 0)
+            total_tok = int(task.total_usage.get("total_tokens") or (input_tok + output_tok + thinking_tok))
+            duration_sec = float(getattr(task, "duration_seconds", 0.0) or 0.0)
             
             # Persist completion in DB
             with get_db_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                 UPDATE tasks
-                SET status = ?, completed_at = ?, exit_code = ?
+                SET status = ?, completed_at = ?, exit_code = ?, duration_seconds = ?, input_tokens = ?, output_tokens = ?, thinking_tokens = ?, total_tokens = ?
                 WHERE task_id = ?;
-                """, (task.status, task.completed_at, task.exit_code, task.task_id))
+                """, (task.status, task.completed_at, task.exit_code, duration_sec, input_tok, output_tok, thinking_tok, total_tok, task.task_id))
 
                 if task.agy_conversation_id:
                     cursor.execute("""
@@ -452,6 +462,7 @@ class AntigravityRunner:
         elif event_type == "result":
             res = data.get("result", {})
             task.total_usage = res.get("usage", {})
+            task.duration_seconds = float(res.get("duration_seconds") or 0.0)
             final_res = res.get("response", "")
             if final_res and (not task.full_response or len(final_res) > len(task.full_response)):
                 task.full_response = final_res

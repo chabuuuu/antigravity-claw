@@ -11,6 +11,7 @@
 
 * 📊 **Operations & Dashboard**
   * [Usage & Model Quotas](USAGE_QUOTAS.md)
+  * [Analytics & Reports](ANALYTICS_AND_REPORTS.md)
   * [Workspace & VPS Terminal](FEATURES.md)
   * [Security & Audit Logging](SECURITY_AUDIT.md)
 

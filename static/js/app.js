@@ -21,6 +21,7 @@ const App = {
     Explorer.init();
     Terminal.init();
     Usage.init();
+    Analytics.init();
     Settings.init();
     Scheduler.init();
     Audit.init();
@@ -125,6 +126,7 @@ const App = {
     if (viewName === "workspace") Explorer.loadDirectory(Explorer.currentDirectory);
     if (viewName === "skills") Skills.loadSkills();
     if (viewName === "usage") Usage.loadUsage();
+    if (viewName === "analytics") Analytics.loadAnalytics();
     if (viewName === "settings") Settings.loadAll();
     if (viewName === "schedules") Scheduler.loadSchedules();
     if (viewName === "audit") Audit.loadLogs();

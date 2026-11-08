@@ -81,6 +81,10 @@
           <span class="icon">📊</span>
           <span>Usage & Quotas</span>
         </div>
+        <div class="nav-item" data-view="analytics">
+          <span class="icon">📈</span>
+          <span>Analytics & Reports</span>
+        </div>
         <div class="nav-item" data-view="settings">
           <span class="icon">⚙️</span>
           <span>Antigravity Config</span>
@@ -602,6 +606,186 @@
                 <span class="token-metric-label">Output & Thinking Tokens</span>
                 <span id="usage-output-tokens" class="token-metric-value">0</span>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: ANALYTICS & PROJECT REPORTS -->
+      <div id="view-analytics" class="view-panel">
+        <div class="analytics-container">
+          <!-- Top Control Header -->
+          <div class="analytics-header-card">
+            <div class="analytics-header-left">
+              <div class="analytics-title-row">
+                <h2 class="panel-title">📈 Antigravity Analytics & Reports</h2>
+                <span class="analytics-live-tag">Live Telemetry</span>
+              </div>
+              <p class="panel-subtitle">Comprehensive token burn breakdown, thinking ratios, project milestones, and agent velocity.</p>
+            </div>
+            <div class="analytics-header-controls">
+              <!-- Project Filter Dropdown -->
+              <div class="control-group" title="Filter analytics by project">
+                <span class="control-label">Project:</span>
+                <select id="analytics-project-filter" class="select-control analytics-select">
+                  <option value="all">All Projects</option>
+                </select>
+              </div>
+              <!-- Time Range Selector -->
+              <div class="analytics-range-pills" id="analytics-range-pills">
+                <button type="button" class="range-pill" data-range="24h">24h</button>
+                <button type="button" class="range-pill active" data-range="7d">7 Days</button>
+                <button type="button" class="range-pill" data-range="30d">30 Days</button>
+                <button type="button" class="range-pill" data-range="all">All Time</button>
+              </div>
+              <!-- Action Buttons -->
+              <div class="analytics-btn-group">
+                <button id="btn-refresh-analytics" class="btn-secondary" title="Refresh charts and metrics">🔄 Refresh</button>
+                <button id="btn-export-analytics-csv" class="btn-secondary" title="Export report as CSV">📥 CSV</button>
+                <button id="btn-export-analytics-json" class="btn-secondary" title="Export full report as JSON">📄 JSON</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top 4 Glowing KPI Metric Cards -->
+          <div class="analytics-kpi-grid">
+            <div class="kpi-card kpi-tokens">
+              <div class="kpi-top">
+                <span class="kpi-icon">⚡</span>
+                <span class="kpi-title">Total Tokens Burned</span>
+                <span id="kpi-tokens-badge" class="kpi-badge">Tokens</span>
+              </div>
+              <div id="kpi-total-tokens" class="kpi-val">0</div>
+              <div class="kpi-breakdown">
+                <span>In: <strong id="kpi-in-tokens">0</strong></span> • 
+                <span>Out: <strong id="kpi-out-tokens">0</strong></span> • 
+                <span>Think: <strong id="kpi-think-tokens">0</strong></span>
+              </div>
+            </div>
+
+            <div class="kpi-card kpi-thinking">
+              <div class="kpi-top">
+                <span class="kpi-icon">🧠</span>
+                <span class="kpi-title">Deep Reasoning Ratio</span>
+                <span class="kpi-badge">Effort</span>
+              </div>
+              <div id="kpi-thinking-ratio" class="kpi-val">0%</div>
+              <div class="kpi-subtext">Portion of tokens dedicated to planning & thinking</div>
+            </div>
+
+            <div class="kpi-card kpi-projects">
+              <div class="kpi-top">
+                <span class="kpi-icon">🎯</span>
+                <span class="kpi-title">Task Completion Rate</span>
+                <span id="kpi-tasks-badge" class="kpi-badge">Tasks</span>
+              </div>
+              <div id="kpi-completion-rate" class="kpi-val">0%</div>
+              <div class="kpi-progress-bar-wrap">
+                <div id="kpi-completion-progress" class="kpi-progress-bar" style="width: 0%;"></div>
+              </div>
+              <div class="kpi-subtext"><span id="kpi-completed-tasks">0</span> completed of <span id="kpi-total-tasks">0</span> tasks</div>
+            </div>
+
+            <div class="kpi-card kpi-velocity">
+              <div class="kpi-top">
+                <span class="kpi-icon">⏱️</span>
+                <span class="kpi-title">Avg Task Turnaround</span>
+                <span class="kpi-badge">Speed</span>
+              </div>
+              <div id="kpi-avg-duration" class="kpi-val">0.0s</div>
+              <div class="kpi-subtext">Across <span id="kpi-active-projects">1</span> active project(s)</div>
+            </div>
+          </div>
+
+          <!-- Charts Row 1: Large Area Chart for Token Consumption & Thinking Timeline -->
+          <div class="analytics-card chart-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3 class="chart-title">Token Consumption & Reasoning Timeline</h3>
+                <p class="chart-subtitle">Input, output, and deep thinking token telemetry plotted across execution turns.</p>
+              </div>
+              <div class="chart-legend-custom">
+                <span class="legend-dot dot-input"></span> Input Tokens
+                <span class="legend-dot dot-output"></span> Output Tokens
+                <span class="legend-dot dot-thinking"></span> Thinking Tokens
+              </div>
+            </div>
+            <div class="chart-canvas-wrapper" style="height: 310px; position: relative;">
+              <canvas id="chart-tokens-timeline"></canvas>
+            </div>
+          </div>
+
+          <!-- Charts Row 2: Model Distribution & Task Status Breakdown -->
+          <div class="analytics-two-col-grid">
+            <!-- Left: Model Share Donut -->
+            <div class="analytics-card chart-card">
+              <div class="chart-header">
+                <div>
+                  <h3 class="chart-title">Token Burn by Model</h3>
+                  <p class="chart-subtitle">Proportion of tokens consumed across model families.</p>
+                </div>
+              </div>
+              <div class="chart-canvas-wrapper" style="height: 250px; position: relative;">
+                <canvas id="chart-models-distribution"></canvas>
+              </div>
+              <div id="chart-models-custom-legend" class="models-legend-grid"></div>
+            </div>
+
+            <!-- Right: Task Status & Velocity -->
+            <div class="analytics-card chart-card">
+              <div class="chart-header">
+                <div>
+                  <h3 class="chart-title">Task Success & Execution Status</h3>
+                  <p class="chart-subtitle">Distribution of completed, failed, and running agent turns.</p>
+                </div>
+              </div>
+              <div class="chart-canvas-wrapper" style="height: 250px; position: relative;">
+                <canvas id="chart-tasks-status"></canvas>
+              </div>
+              <div id="chart-status-summary" class="status-summary-row"></div>
+            </div>
+          </div>
+
+          <!-- Section 3: Projects Progress & Milestone Tracking Matrix -->
+          <div class="analytics-card projects-matrix-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3 class="chart-title">📁 Project Progress & Milestone Tracking</h3>
+                <p class="chart-subtitle">Monitor deliverables, token burn, completion rate, and recent subtasks per project.</p>
+              </div>
+              <button id="btn-create-project-task" class="btn-primary" style="font-size: 11px; padding: 5px 12px;">+ New Task for Project</button>
+            </div>
+            <div id="projects-grid" class="projects-matrix-grid">
+              <!-- Dynamically populated project cards -->
+            </div>
+          </div>
+
+          <!-- Section 4: Detailed Task Execution Logs -->
+          <div class="analytics-card">
+            <div class="chart-header">
+              <div class="chart-title-group">
+                <h3 class="chart-title">Recent Execution Turns & Token Log</h3>
+                <p class="chart-subtitle">Granular audit of recent tasks, duration, and token consumption.</p>
+              </div>
+            </div>
+            <div class="analytics-table-wrap">
+              <table class="data-table analytics-table">
+                <thead>
+                  <tr>
+                    <th>Task ID</th>
+                    <th>Project</th>
+                    <th>Prompt / Mission</th>
+                    <th>Status</th>
+                    <th>Duration</th>
+                    <th>Total Tokens</th>
+                    <th>Thinking Tokens</th>
+                    <th>Completed At</th>
+                  </tr>
+                </thead>
+                <tbody id="analytics-tasks-table">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -1146,6 +1330,7 @@
   </div>
 
   <!-- Scripts -->
+  <script src="/static/js/chart.min.js"></script>
   <script src="/static/js/auth.js"></script>
   <script src="/static/js/chat.js"></script>
   <script src="/static/js/teamwork.js"></script>
@@ -1153,6 +1338,7 @@
   <script src="/static/js/explorer.js"></script>
   <script src="/static/js/terminal.js"></script>
   <script src="/static/js/usage.js"></script>
+  <script src="/static/js/analytics.js"></script>
   <script src="/static/js/settings.js"></script>
   <script src="/static/js/scheduler.js"></script>
   <script src="/static/js/audit.js"></script>

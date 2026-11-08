@@ -106,17 +106,35 @@ When installed on a self-hosted Ubuntu Linux VPS, it allows developers to:
 - **Project Rules & Guidelines**: Directly view and edit `GEMINI.md` and `AGENTS.md` in the browser.
 - **Raw Configuration Editor**: Safe editor for `~/.gemini/settings.json` and `~/.gemini/config/config.json`.
 
-### 5. 📁 Workspace Explorer & In-Browser Code Editor
+### 5. 📈 Analytics, Token Telemetry & Project Progress Reports
+- **Interactive Chart Suite (Chart.js 4.4)**:
+  - **Token Consumption Timeline**: High-precision area spline chart plotting input, output, and deep thinking tokens across hours and days with neon glowing gradients.
+  - **Model Share & Token Distribution**: Donut chart tracking token burn across Gemini 4 Argon, Gemini 3.8 Flash, Claude Sonnet 5.5, Claude Opus 5.5, and GPT-OSS.
+  - **Task Execution Status & Velocity**: Bar chart visualizing completed, failed, running, and cancelled agent turns.
+- **Project Progress & Milestone Matrix**:
+  - Dedicated cards for every project with dynamic progress percentage gauges (e.g. `14 / 16 tasks (87.5%)`).
+  - Token burn breakdown (total, input, output, thinking) and average turnaround velocity per project.
+  - Previews of recent subtasks and 1-click `🚀 Open in Workspace` action.
+- **Top Glowing KPI Telemetry Cards**:
+  - Total tokens burned (with formatted `K`/`M` notation).
+  - Deep reasoning ratio (% of tokens dedicated to planning).
+  - Overall task completion rate.
+  - Average execution turnaround speed in seconds.
+- **Flexible Filters & One-Click Export**:
+  - Filter charts and metrics by project name or time range (`24h`, `7d`, `30d`, `all`).
+  - Instant export of full reports to **CSV** and **JSON**.
+
+### 6. 📁 Workspace Explorer & In-Browser Code Editor
 - **Tree Navigation**: Browse remote project directories with MIME-type icons and modification dates.
 - **Code Editor**: Edit and save files with `Ctrl + S`, featuring automatic `.bak` backup generation.
 - **File Transfer**: Upload files from your local machine to the VPS or download files from the VPS.
 - **Git Integration**: View active branch, uncommitted modifications count, and side-by-side `git diff` outputs.
 
-### 6. 💻 VPS Web Terminal
+### 7. 💻 VPS Web Terminal
 - **Integrated Bash Session**: Execute Linux shell commands remotely without opening an SSH client.
 - **Terminal Capabilities**: Monospace ANSI color rendering, command history (Arrow Up/Down), clear screen, and interactive process termination (Kill switch).
 
-### 7. ⏱️ Autonomous Scheduling & Multi-Channel Webhooks
+### 8. ⏱️ Autonomous Scheduling & Multi-Channel Webhooks
 - **Cron Automations**: Define recurring jobs using standard cron syntax (e.g., `*/30 * * * *`, `@daily`, `every 60 min`).
 - **Unattended 24/7 Execution**: Evaluates schedules in a background daemon loop, launching Antigravity without requiring human interaction.
 - **Instant Webhooks**: Receive completion summaries, token metrics, or failure alerts via:
@@ -125,7 +143,7 @@ When installed on a self-hosted Ubuntu Linux VPS, it allows developers to:
   - **Slack Webhook**
   - **Generic HTTP Webhook** (JSON payload)
 
-### 8. 🛡️ Enterprise Security & Tamper-Evident Audit Trail
+### 9. 🛡️ Enterprise Security & Tamper-Evident Audit Trail
 - **Mandatory Authentication**: All REST API endpoints and WebSockets strictly reject unauthenticated requests.
 - **First-Run Master Setup Wizard**: On initial startup, the user sets their administrator credentials; no hardcoded default passwords exist.
 - **Cryptographic Hashing**: Passwords hashed with high-iteration Bcrypt or PBKDF2-HMAC-SHA256 (600,000 rounds) and unique salts.
@@ -134,7 +152,7 @@ When installed on a self-hosted Ubuntu Linux VPS, it allows developers to:
 - **Path Traversal Defense**: All file queries are validated against the canonical workspace boundary using `Path.relative_to()`.
 - **Append-Only Audit Log**: Every login, task dispatch, file edit, terminal command, and configuration change is recorded in an SQLite database with timestamp (UTC), username, client IP, action, resource, status, and details. Logs can be exported to **CSV** or **JSON**.
 
-### 9. 📱 Mobile-First Responsive Experience
+### 10. 📱 Mobile-First Responsive Experience
 - **Slide-Over Off-Canvas Navigation**: Touch hamburger drawer (`☰`) with smooth sliding animations and frosted backdrop dismiss.
 - **On-the-Go Autonomous Tasks**: Prompt AI from your smartphone with thumb-friendly controls, enlarged `🚀 Run` button, and auto-zoom prevention (16px base input).
 - **Segmented Mobile Workspace Switcher**: Easily toggle between `📁 File Tree` and `📝 Code Editor` tabs on narrow screens; opening a file automatically transitions to the code editor.
