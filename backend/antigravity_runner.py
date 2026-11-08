@@ -154,7 +154,18 @@ class AntigravityRunner:
         )
 
         # Build CLI command arguments
-        cwd = workspace_dir or str(DEFAULT_WORKSPACE)
+        cwd = workspace_dir
+        if not cwd and clean_project:
+            try:
+                from backend.projects_manager import projects_manager_instance
+                p_obj = projects_manager_instance.get_project(clean_project)
+                if p_obj and p_obj.get("path") and os.path.isdir(p_obj["path"]):
+                    cwd = p_obj["path"]
+            except Exception:
+                pass
+        if not cwd:
+            cwd = str(DEFAULT_WORKSPACE)
+
         cmd = [
             AGY_BIN_PATH,
             "--output-format", "stream-json"

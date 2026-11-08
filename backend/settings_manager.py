@@ -89,6 +89,14 @@ BUILTIN_SLASH_COMMANDS = [
         "icon": "📦",
     },
     {
+        "name": "/projects",
+        "aliases": ["/project"],
+        "description": "Create, switch, and edit workspace projects.",
+        "category": "Project Management",
+        "example": "/projects",
+        "icon": "📁",
+    },
+    {
         "name": "/usage",
         "aliases": ["/quota"],
         "description": "View model quota usage and remaining rate limits.",

@@ -61,6 +61,10 @@
           <span class="icon">💬</span>
           <span>Agent Workspace</span>
         </div>
+        <div class="nav-item" data-view="projects">
+          <span class="icon">📁</span>
+          <span>Projects</span>
+        </div>
         <div class="nav-item" data-view="teamwork">
           <span class="icon">👥</span>
           <span>Teamwork & Swarm</span>
@@ -157,6 +161,7 @@
           </div>
           <div class="nav-left-info">
             <span class="workspace-pill" id="current-workspace-pill">Workspace: /...</span>
+            <span id="current-project-pill" class="workspace-pill" style="cursor: pointer; color: #a371f7; display: none;" title="Click to manage Projects">📁 Project: CLI Project</span>
             <span id="git-status-pill" class="workspace-pill" style="display:none; color: var(--accent-green);">Git: main</span>
             <span id="header-quota-pill" class="workspace-pill" style="cursor: pointer; color: var(--accent-blue); display: none;" title="Click to view Antigravity Usage & Quotas">📊 Quota: --%</span>
           </div>
@@ -220,6 +225,13 @@
                 <span class="control-label">Agent:</span>
                 <select id="chat-agent-select" class="select-control">
                   <option value="">Default Agent</option>
+                </select>
+              </div>
+
+              <div class="control-group">
+                <span class="control-label">Project:</span>
+                <select id="chat-project-select" class="select-control" style="max-width: 170px;">
+                  <option value="Default">Default</option>
                 </select>
               </div>
 
@@ -315,6 +327,66 @@
               <button id="btn-chat-cancel" class="btn-cancel">
                 <span>🛑 Stop</span>
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: PROJECTS MANAGER -->
+      <div id="view-projects" class="view-panel">
+        <div class="projects-container">
+          <div class="projects-header-bar">
+            <div class="header-titles">
+              <h2>📁 Antigravity Projects Manager</h2>
+              <p class="subtitle">Create, configure, and switch workspace projects powered by the Antigravity CLI engine.</p>
+            </div>
+            <div class="header-actions">
+              <button id="btn-refresh-projects" class="btn-secondary">🔄 Refresh</button>
+              <button id="btn-new-project" class="btn-primary">➕ New Project</button>
+            </div>
+          </div>
+
+          <!-- Projects KPI Row -->
+          <div class="analytics-kpi-grid" style="margin-bottom: 20px;">
+            <div class="kpi-card">
+              <div class="kpi-title">Total Projects</div>
+              <div id="kpi-total-projects" class="kpi-val" style="color: var(--accent-blue);">0</div>
+              <div class="kpi-sub">Configured Antigravity projects</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-title">Active Project</div>
+              <div id="kpi-active-project" class="kpi-val" style="color: var(--accent-green); font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">CLI Project</div>
+              <div class="kpi-sub">Current session context</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-title">Workspaces Linked</div>
+              <div id="kpi-linked-workspaces" class="kpi-val" style="color: #d2a8ff;">0</div>
+              <div class="kpi-sub">Directories mapped to CLI</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-title">Total Sessions</div>
+              <div id="kpi-total-project-sessions" class="kpi-val" style="color: #79c0ff;">0</div>
+              <div class="kpi-sub">Conversations across projects</div>
+            </div>
+          </div>
+
+          <!-- Projects Search & Filter Toolbar -->
+          <div class="projects-toolbar">
+            <div class="search-input-wrap">
+              <input type="text" id="projects-search-input" placeholder="Search projects by name, ID, or workspace path..." />
+            </div>
+            <div id="projects-filter-pills" class="filter-pills">
+              <button class="filter-pill active" data-filter="all">All Projects</button>
+              <button class="filter-pill" data-filter="active">Active</button>
+              <button class="filter-pill" data-filter="workspace">With Workspace</button>
+              <button class="filter-pill" data-filter="default">Default CLI</button>
+            </div>
+          </div>
+
+          <!-- Projects Grid -->
+          <div id="projects-grid" class="projects-grid">
+            <div style="grid-column: 1 / -1; padding: 24px; text-align: center; color: var(--text-muted);">
+              Loading projects...
             </div>
           </div>
         </div>
@@ -1332,10 +1404,49 @@
     </div>
   </div>
 
+  <!-- Modal: Create / Edit Project -->
+  <div id="project-modal" class="modal-overlay">
+    <div class="modal-dialog" style="max-width: 540px;">
+      <div class="modal-header">
+        <span id="project-modal-title">Create Antigravity Project</span>
+        <button class="btn-icon modal-close" id="btn-project-modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Project Name <span style="color: var(--accent-red);">*</span></label>
+          <input type="text" id="project-name-input" class="form-input" placeholder="e.g. ecommerce-backend, my-agent-app" />
+          <small style="color: var(--text-muted); font-size: 11px; margin-top: 4px; display: block;">Identifier used for Antigravity CLI sessions (--project &lt;name&gt;) and history tracking.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Workspace Directory (Optional)</label>
+          <input type="text" id="project-path-input" class="form-input" placeholder="/home/username/projects/my-app" />
+          <small style="color: var(--text-muted); font-size: 11px; margin-top: 4px; display: block;">Local root directory to bind this project to. Sessions running in this project will automatically execute within this workspace.</small>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 14px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-set-active-check" checked />
+            <span>Set as active project immediately</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="project-set-default-check" />
+            <span>Set as default Antigravity CLI project</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-project-modal-cancel" class="btn-secondary">Cancel</button>
+        <button id="btn-project-modal-save" class="btn-primary">Save Project</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="/static/js/chart.min.js"></script>
   <script src="/static/js/auth.js"></script>
   <script src="/static/js/chat.js"></script>
+  <script src="/static/js/projects.js"></script>
   <script src="/static/js/teamwork.js"></script>
   <script src="/static/js/skills.js"></script>
   <script src="/static/js/explorer.js"></script>

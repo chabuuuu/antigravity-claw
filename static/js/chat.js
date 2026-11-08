@@ -441,7 +441,12 @@ const Chat = {
     // Advanced Flags
     const continueSession = document.getElementById("chat-continue") ? document.getElementById("chat-continue").checked : false;
     const remoteAgent = document.getElementById("chat-remote-agent") ? document.getElementById("chat-remote-agent").checked : false;
-    const project = document.getElementById("chat-project") ? document.getElementById("chat-project").value.trim() : "";
+    const projectSelect = document.getElementById("chat-project-select");
+    let project = document.getElementById("chat-project") ? document.getElementById("chat-project").value.trim() : "";
+    if (!project && projectSelect && projectSelect.value && projectSelect.value !== "Default" && projectSelect.value !== "__new__") {
+      const pObj = (typeof Projects !== "undefined" && Projects.projects) ? Projects.projects.find(p => p.id === projectSelect.value || p.name === projectSelect.value) : null;
+      project = pObj ? pObj.name : projectSelect.value;
+    }
     const newProject = document.getElementById("chat-new-project") ? document.getElementById("chat-new-project").checked : false;
     const addDirs = document.getElementById("chat-add-dirs") ? document.getElementById("chat-add-dirs").value.split(",").map(s => s.trim()).filter(Boolean) : [];
     const disableSlashCommands = document.getElementById("chat-disable-slash-commands") ? document.getElementById("chat-disable-slash-commands").checked : false;
@@ -562,6 +567,47 @@ const Chat = {
         this.currentAssistantContent.innerHTML = skillsHtml;
       } catch (e) {
         this.appendErrorMessage("Failed to load skills: " + e.message);
+      } finally {
+        this.setExecutionState(false);
+      }
+      return;
+    }
+
+    // Intercept /projects or /project slash command
+    if (prompt === "/projects" || prompt === "/project") {
+      this.appendUserMessage(prompt);
+      this.setExecutionState(true);
+      this.prepareAssistantBubble();
+      try {
+        const res = await Auth.fetchWithAuth("/api/projects");
+        const data = await res.json();
+        const projs = data.projects || [];
+        let projsHtml = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h4 style="margin:0; color:#a371f7;">📁 Antigravity Projects (${projs.length})</h4>
+            <button onclick="App.switchView('projects')" class="btn-primary" style="padding:4px 10px; font-size:11px; cursor:pointer;">Manage in Projects View ↗</button>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:10px;">
+        `;
+        projs.slice(0, 8).forEach(p => {
+          const isActive = p.is_active;
+          projsHtml += `
+            <div style="background:#0d1117; border:1px solid ${isActive ? '#3fb950' : 'var(--border-color)'}; border-radius:6px; padding:10px; display:flex; flex-direction:column; gap:6px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:13px; font-weight:700; color:var(--text-bright);">${this.escapeHtml(p.name)}</span>
+                ${isActive ? '<span style="font-size:9px; background:rgba(46,160,67,0.2); color:#7ee787; padding:2px 6px; border-radius:4px; font-weight:bold;">ACTIVE</span>' : ''}
+              </div>
+              <p style="font-size:11px; font-family:var(--font-mono); color:var(--text-muted); margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${this.escapeHtml(p.path || 'No workspace directory')}</p>
+              <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:4px;">
+                <button onclick="Projects.setActiveProject('${this.escapeHtml(p.id)}')" class="btn-secondary" style="padding:3px 8px; font-size:11px; cursor:pointer;">${isActive ? 'Selected' : 'Switch Project'}</button>
+              </div>
+            </div>
+          `;
+        });
+        projsHtml += `</div>`;
+        this.currentAssistantContent.innerHTML = projsHtml;
+      } catch (e) {
+        this.appendErrorMessage("Failed to load projects: " + e.message);
       } finally {
         this.setExecutionState(false);
       }

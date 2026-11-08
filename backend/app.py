@@ -35,6 +35,7 @@ from backend.terminal_manager import terminal_manager_instance
 from backend.scheduler import scheduler_instance
 from backend.webhook_notifier import notifier_instance
 from backend.analytics_manager import analytics_manager_instance
+from backend.projects_manager import projects_manager_instance
 
 logging.basicConfig(
     level=logging.INFO,
@@ -198,6 +199,10 @@ class AgentPromptHandler(BaseHandler):
         continue_session = bool(data.get("continue", False))
         remote_agent = bool(data.get("remote_agent", False))
         project = data.get("project")
+        if not project or project.strip() in ("", "Default"):
+            active_p = projects_manager_instance.get_active_project()
+            if active_p and active_p.get("name") and active_p["name"] != "CLI Project":
+                project = active_p["name"]
         new_project = bool(data.get("new_project", False))
         add_dirs = data.get("add_dirs")
         disable_slash_commands = bool(data.get("disable_slash_commands", False))
@@ -454,6 +459,146 @@ class AgentConversationDetailHandler(BaseHandler):
             details={"deleted_conversation": conv_id}
         )
         self.write({"success": True, "conversation_id": conv_id})
+
+# ================= PROJECTS CONTROLLERS =================
+
+class ProjectsListHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        projects = projects_manager_instance.list_projects()
+        active = projects_manager_instance.get_active_project()
+        default_id = projects_manager_instance.get_default_project_id()
+        self.write({
+            "projects": projects,
+            "active_project": active,
+            "default_project_id": default_id
+        })
+
+    @require_auth
+    def post(self):
+        data = self.get_json_body()
+        name = data.get("name", "").strip()
+        if not name:
+            self.set_status(400)
+            self.finish({"error": "Project name is required."})
+            return
+
+        path = data.get("path", "").strip()
+        is_default = bool(data.get("is_default", False))
+        set_active = bool(data.get("set_active", True))
+
+        try:
+            created = projects_manager_instance.create_project(
+                name=name,
+                path=path,
+                is_default=is_default,
+                set_active=set_active
+            )
+            log_audit(
+                action=AuditAction.SETTINGS_UPDATE,
+                status="SUCCESS",
+                resource=f"project:{created['id']}",
+                user_id=int(self.current_user["sub"]),
+                username=self.current_user["username"],
+                ip_address=self.get_client_ip(),
+                details={"created_project": created}
+            )
+            self.write({"success": True, "project": created})
+        except Exception as e:
+            self.set_status(500)
+            self.finish({"error": str(e)})
+
+class ProjectDetailHandler(BaseHandler):
+    @require_auth
+    def get(self, project_id: str):
+        proj = projects_manager_instance.get_project(project_id)
+        if not proj:
+            self.set_status(404)
+            self.finish({"error": f"Project '{project_id}' not found."})
+            return
+        self.write({"project": proj})
+
+    @require_auth
+    def put(self, project_id: str):
+        data = self.get_json_body()
+        name = data.get("name")
+        path = data.get("path")
+        is_default = data.get("is_default")
+        set_active = data.get("set_active")
+
+        try:
+            updated = projects_manager_instance.update_project(
+                project_id=project_id,
+                name=name,
+                path=path,
+                is_default=is_default,
+                set_active=set_active
+            )
+            log_audit(
+                action=AuditAction.SETTINGS_UPDATE,
+                status="SUCCESS",
+                resource=f"project:{project_id}",
+                user_id=int(self.current_user["sub"]),
+                username=self.current_user["username"],
+                ip_address=self.get_client_ip(),
+                details={"updated_project": updated}
+            )
+            self.write({"success": True, "project": updated})
+        except Exception as e:
+            self.set_status(500)
+            self.finish({"error": str(e)})
+
+    @require_auth
+    def delete(self, project_id: str):
+        try:
+            deleted = projects_manager_instance.delete_project(project_id)
+            if not deleted:
+                self.set_status(404)
+                self.finish({"error": f"Project '{project_id}' not found or could not be deleted."})
+                return
+            log_audit(
+                action=AuditAction.SETTINGS_UPDATE,
+                status="SUCCESS",
+                resource=f"project:{project_id}",
+                user_id=int(self.current_user["sub"]),
+                username=self.current_user["username"],
+                ip_address=self.get_client_ip(),
+                details={"deleted_project": project_id}
+            )
+            self.write({"success": True, "deleted": project_id})
+        except ValueError as ve:
+            self.set_status(400)
+            self.finish({"error": str(ve)})
+        except Exception as e:
+            self.set_status(500)
+            self.finish({"error": str(e)})
+
+class ProjectActiveHandler(BaseHandler):
+    @require_auth
+    def post(self):
+        data = self.get_json_body()
+        project_id = data.get("project_id", "").strip()
+        if not project_id:
+            self.set_status(400)
+            self.finish({"error": "project_id is required."})
+            return
+
+        active = projects_manager_instance.set_active_project(project_id)
+        if not active:
+            self.set_status(404)
+            self.finish({"error": f"Project '{project_id}' not found."})
+            return
+
+        log_audit(
+            action=AuditAction.SETTINGS_UPDATE,
+            status="SUCCESS",
+            resource=f"project_active:{project_id}",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip(),
+            details={"active_project": active}
+        )
+        self.write({"success": True, "active_project": active})
 
 # ================= SETTINGS CONTROLLERS =================
 
@@ -1145,6 +1290,11 @@ def make_app():
         (r"/api/antigravity/commands", AntigravityCommandsHandler),
         (r"/api/antigravity/skills", AntigravitySkillsHandler),
         (r"/api/antigravity/skills/([^/]+)", AntigravitySkillDetailHandler),
+        
+        # Antigravity Projects Routes
+        (r"/api/projects", ProjectsListHandler),
+        (r"/api/projects/active", ProjectActiveHandler),
+        (r"/api/projects/([^/]+)", ProjectDetailHandler),
         
         # Analytics & Reporting Routes
         (r"/api/analytics/summary", AnalyticsSummaryHandler),

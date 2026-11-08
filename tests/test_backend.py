@@ -142,6 +142,38 @@ class TestOpenClawBackend(unittest.TestCase):
         self.assertIn("total_tokens", data["kpis"])
         self.assertIsInstance(data["projects"], list)
 
+    def test_07_projects_manager(self):
+        from backend.projects_manager import projects_manager_instance
+        projs = projects_manager_instance.list_projects()
+        self.assertIsInstance(projs, list)
+        self.assertGreaterEqual(len(projs), 1)
+
+        # Test creating project
+        created = projects_manager_instance.create_project(
+            name="test-unit-project",
+            path="/tmp/test-unit-project",
+            is_default=False,
+            set_active=True
+        )
+        self.assertEqual(created["name"], "test-unit-project")
+        self.assertTrue(created["is_active"])
+        proj_id = created["id"]
+
+        # Test active project retrieval
+        active = projects_manager_instance.get_active_project()
+        self.assertEqual(active["id"], proj_id)
+
+        # Test updating project
+        updated = projects_manager_instance.update_project(
+            project_id=proj_id,
+            name="test-unit-project-renamed"
+        )
+        self.assertEqual(updated["name"], "test-unit-project-renamed")
+
+        # Test deleting project
+        deleted = projects_manager_instance.delete_project(proj_id)
+        self.assertTrue(deleted)
+
 import tornado.testing
 from backend.app import make_app
 
@@ -191,6 +223,9 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
 
         res13 = self.fetch('/api/agent/conversations/nonexistent-id', method='DELETE')
         self.assertEqual(res13.code, 401)
+
+        res14 = self.fetch('/api/projects')
+        self.assertEqual(res14.code, 401)
 
 if __name__ == "__main__":
     unittest.main()
