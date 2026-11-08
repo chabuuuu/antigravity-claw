@@ -189,6 +189,9 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
         res12 = self.fetch('/api/antigravity/skills')
         self.assertEqual(res12.code, 401)
 
+        res13 = self.fetch('/api/agent/conversations/nonexistent-id', method='DELETE')
+        self.assertEqual(res13.code, 401)
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -436,6 +436,25 @@ class AgentConversationDetailHandler(BaseHandler):
             "messages": messages
         })
 
+    @require_auth
+    def delete(self, conv_id: str):
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM conversation_messages WHERE conversation_id = ?;", (conv_id,))
+            cursor.execute("DELETE FROM tasks WHERE conversation_id = ?;", (conv_id,))
+            cursor.execute("DELETE FROM conversations WHERE conversation_id = ?;", (conv_id,))
+            conn.commit()
+        log_audit(
+            action=AuditAction.SETTINGS_UPDATE,
+            status="SUCCESS",
+            resource=f"conversation:{conv_id}",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip(),
+            details={"deleted_conversation": conv_id}
+        )
+        self.write({"success": True, "conversation_id": conv_id})
+
 # ================= SETTINGS CONTROLLERS =================
 
 class SettingsModelsHandler(BaseHandler):

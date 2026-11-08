@@ -23,7 +23,7 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   
-  --sidebar-width: 260px;
+  --sidebar-width: 280px;
 }
 
 * {
@@ -59,14 +59,18 @@ body {
   flex-direction: column;
   flex-shrink: 0;
   user-select: none;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .brand-header {
-  padding: 16px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .brand-logo {
@@ -101,22 +105,24 @@ body {
 
 /* Navigation Menu */
 .nav-menu {
-  padding: 12px 8px;
+  padding: 8px 6px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
+  gap: 9px;
+  padding: 6.5px 10px;
   border-radius: 6px;
   color: var(--text-primary);
   cursor: pointer;
   transition: all 0.15s ease;
   font-weight: 500;
+  font-size: 12.5px;
 }
 
 .nav-item:hover {
@@ -130,40 +136,64 @@ body {
 }
 
 .nav-item .icon {
-  font-size: 16px;
+  font-size: 14px;
   display: inline-block;
-  width: 20px;
+  width: 18px;
   text-align: center;
 }
 
 /* Sidebar Conversations Section */
 .conversations-section {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1 1 260px;
+  min-height: 240px;
+  overflow: hidden;
   border-top: 1px solid var(--border-color);
-  padding: 12px 8px;
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
+  gap: 6px;
 }
 
 .section-title {
   font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
   color: var(--text-muted);
   letter-spacing: 0.5px;
-  padding: 4px 8px 8px;
+  padding: 2px 4px 4px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.conversations-search-wrap {
+  padding: 0 2px 4px;
+}
+
+.conv-search-input {
+  width: 100%;
+  background: #0d1117;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  padding: 5px 8px;
+  font-size: 11px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.conv-search-input:focus {
+  border-color: var(--accent-blue);
 }
 
 .btn-new-chat {
   background: rgba(56, 139, 253, 0.15);
   color: var(--accent-blue);
   border: 1px solid rgba(56, 139, 253, 0.3);
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-radius: 4px;
   font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -176,50 +206,121 @@ body {
 .conversations-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   overflow-y: auto;
+  flex: 1;
+  min-height: 180px;
+  padding-right: 2px;
 }
 
 .conv-item {
-  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 7px 9px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-primary);
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: background-color 0.15s;
+  transition: all 0.15s ease;
+  border-left: 3px solid transparent;
+  background: transparent;
 }
 
 .conv-item:hover {
   background-color: var(--bg-hover);
+  color: var(--text-bright);
 }
 
 .conv-item.active {
-  background-color: var(--bg-tertiary);
-  color: var(--accent-blue);
-  border-left: 3px solid var(--accent-blue);
+  background-color: rgba(56, 139, 253, 0.15);
+  color: #79c0ff;
+  border-left-color: var(--accent-blue);
+  font-weight: 600;
+}
+
+.conv-item-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.conv-item-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.conv-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.conv-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.conv-item-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.btn-conv-delete {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.conv-item:hover .btn-conv-delete {
+  opacity: 0.7;
+}
+
+.btn-conv-delete:hover {
+  opacity: 1 !important;
+  background: rgba(248, 81, 73, 0.2);
+  color: #ff7b72;
 }
 
 /* User & System Status Box at bottom of sidebar */
 .sidebar-footer {
-  padding: 12px;
+  padding: 8px 10px;
   border-top: 1px solid var(--border-color);
   background-color: var(--bg-primary);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .vps-metrics {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  padding: 8px;
+  padding: 6px 8px;
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 10.5px;
 }
 
 .metric-item {

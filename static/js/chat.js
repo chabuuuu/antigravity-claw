@@ -152,6 +152,14 @@ const Chat = {
         }
       });
     }
+
+    // Sessions search filter
+    const convSearch = document.getElementById("conv-search-input");
+    if (convSearch) {
+      convSearch.addEventListener("input", (e) => {
+        this.filterConversations(e.target.value);
+      });
+    }
   },
 
   handleSlashInput() {
@@ -249,22 +257,106 @@ const Chat = {
       });
       if (!res.ok) return;
       const data = await res.json();
-      const listContainer = document.getElementById("conversations-list");
-      listContainer.innerHTML = "";
-
-      (data.conversations || []).forEach(conv => {
-        const item = document.createElement("div");
-        item.className = `conv-item ${conv.conversation_id === this.activeConversationId ? 'active' : ''}`;
-        item.innerText = conv.title || "Untitled Session";
-        item.title = conv.title;
-        item.addEventListener("click", () => {
-          this.loadConversation(conv.conversation_id);
-          if (typeof App !== "undefined" && App.closeMobileSidebar) App.closeMobileSidebar();
-        });
-        listContainer.appendChild(item);
-      });
+      this.conversationsList = data.conversations || [];
+      const convSearch = document.getElementById("conv-search-input");
+      const query = convSearch ? convSearch.value : "";
+      this.filterConversations(query);
     } catch (e) {
       console.warn("Failed to load conversations:", e);
+    }
+  },
+
+  filterConversations(query) {
+    const listContainer = document.getElementById("conversations-list");
+    if (!listContainer) return;
+    listContainer.innerHTML = "";
+
+    const q = (query || "").toLowerCase().trim();
+    const filtered = (this.conversationsList || []).filter(c => {
+      if (!q) return true;
+      const t = (c.title || "").toLowerCase();
+      const m = (c.model || "").toLowerCase();
+      return t.includes(q) || m.includes(q);
+    });
+
+    if (filtered.length === 0) {
+      listContainer.innerHTML = `
+        <div style="padding: 16px 8px; text-align: center; color: var(--text-muted); font-size: 11px;">
+          ${q ? "No matching sessions" : "No recent sessions"}
+        </div>
+      `;
+      return;
+    }
+
+    filtered.forEach(conv => {
+      const item = document.createElement("div");
+      const isActive = conv.conversation_id === this.activeConversationId;
+      item.className = `conv-item ${isActive ? 'active' : ''}`;
+      
+      const timeAgo = this.formatTimeAgo(conv.updated_at || conv.created_at);
+      const isTeam = (conv.title || "").startsWith("/teamwork") || (conv.title || "").startsWith("/boost");
+      const icon = isTeam ? "👥" : "💬";
+
+      item.innerHTML = `
+        <div class="conv-item-main">
+          <span class="conv-item-icon">${icon}</span>
+          <div class="conv-item-text">
+            <span class="conv-item-title">${this.escapeHtml(conv.title || "Untitled Session")}</span>
+            <span class="conv-item-time">${timeAgo}</span>
+          </div>
+        </div>
+        <button class="btn-conv-delete" title="Delete conversation">✕</button>
+      `;
+
+      item.addEventListener("click", (e) => {
+        if (e.target.closest(".btn-conv-delete")) return;
+        this.loadConversation(conv.conversation_id);
+        if (typeof App !== "undefined" && App.closeMobileSidebar) App.closeMobileSidebar();
+      });
+
+      const delBtn = item.querySelector(".btn-conv-delete");
+      if (delBtn) {
+        delBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          if (confirm(`Delete session "${conv.title || 'Untitled'}"?`)) {
+            await this.deleteConversation(conv.conversation_id);
+          }
+        });
+      }
+
+      listContainer.appendChild(item);
+    });
+  },
+
+  async deleteConversation(convId) {
+    try {
+      const res = await fetch(`/api/agent/conversations/${convId}`, {
+        method: "DELETE",
+        headers: Auth.getAuthHeaders()
+      });
+      if (res.ok) {
+        if (this.activeConversationId === convId) {
+          this.startNewSession();
+        } else {
+          this.loadConversations();
+        }
+      }
+    } catch (e) {
+      console.error("Failed to delete conversation:", e);
+    }
+  },
+
+  formatTimeAgo(isoString) {
+    if (!isoString) return "";
+    try {
+      const date = new Date(isoString);
+      const diffSec = Math.floor((new Date() - date) / 1000);
+      if (diffSec < 60) return "Just now";
+      if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+      if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+      return `${Math.floor(diffSec / 86400)}d ago`;
+    } catch (e) {
+      return "";
     }
   },
 

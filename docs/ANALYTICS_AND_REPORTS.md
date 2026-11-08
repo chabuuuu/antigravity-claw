@@ -124,3 +124,4 @@ Exports the report as a downloadable file.
 - `format`: `"csv"` or `"json"` (default: `"csv"`).
 - `project`: Project filter (default: `"all"`).
 - `range`: Time range (default: `"30d"`).
+

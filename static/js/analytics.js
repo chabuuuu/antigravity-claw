@@ -575,3 +575,4 @@ const Analytics = {
       .replace(/'/g, "&#039;");
   }
 };
+
