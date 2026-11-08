@@ -111,6 +111,27 @@ class TestOpenClawBackend(unittest.TestCase):
             self.assertGreater(len(models), 0)
         asyncio.run(run_models())
 
+    def test_05_antigravity_commands_and_skills(self):
+        async def run_checks():
+            # Check skills
+            skills = await settings_manager_instance.get_skills()
+            self.assertIsInstance(skills, list)
+            self.assertGreater(len(skills), 0)
+
+            # Check commands
+            commands = await settings_manager_instance.get_commands()
+            self.assertIsInstance(commands, list)
+            self.assertGreater(len(commands), 10)
+            
+            # Verify /teamwork and /boost are present
+            cmd_names = [c["name"] for c in commands]
+            self.assertIn("/teamwork", cmd_names)
+            self.assertIn("/boost", cmd_names)
+            self.assertIn("/plan", cmd_names)
+            self.assertIn("/goal", cmd_names)
+
+        asyncio.run(run_checks())
+
 import tornado.testing
 from backend.app import make_app
 
@@ -151,6 +172,12 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
 
         res10 = self.fetch('/api/antigravity/usage')
         self.assertEqual(res10.code, 401)
+
+        res11 = self.fetch('/api/antigravity/commands')
+        self.assertEqual(res11.code, 401)
+
+        res12 = self.fetch('/api/antigravity/skills')
+        self.assertEqual(res12.code, 401)
 
 if __name__ == "__main__":
     unittest.main()

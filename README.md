@@ -37,12 +37,31 @@ When installed on a self-hosted Ubuntu Linux VPS, it allows developers to:
 ### 1. 💬 Real-Time Agent Workspace
 - **Direct CLI Communication**: Interfaces with `agy` using the native `--output-format stream-json` protocol.
 - **Live Token Streaming**: Token-by-token real-time output via WebSockets.
+- **Interactive Slash Commands Autocomplete (`/`)**: Floating popup with keyboard navigation (`↑`/`↓`, `Enter`/`Tab`, `Esc`) and instant filtering across 38+ commands and skills.
+- **Quick Action Workflow Chips**: 1-click chips above prompt (`👥 Teamwork`, `🚀 Boost`, `📋 Plan`, `💬 Grill-Me`, `🎯 Goal`, `🧠 Learn`, `🌐 Browser`, `📊 Usage`, `🧩 Skills`, `❓ Help`).
+- **Interactive In-Chat Cards**: Instant rich response cards for `/usage` (quota bars), `/skills` (extension grid), and `/help` (command cheat-sheet).
 - **Reasoning Process Accordion**: Collapsible thought blocks showing agent planning and thinking tokens.
 - **Tool Execution Cards**: Real-time visualization of tool calls (`run_command`, `edit_file`, MCP tools) showing parameters, status badges, and standard output.
 - **Token Telemetry**: Complete breakdown of input, output, and thinking tokens along with turn execution duration.
 - **Multi-Turn Sessions**: Conversation history persistence in SQLite; resume or stop running sessions anytime.
 
-### 2. ⚙️ Complete Antigravity Configuration & CLI Suite (100% Feature Parity)
+### 2. 👥 Teamwork & Multi-Agent Swarm Studio
+- **Multi-Agent Orchestration Strategies**:
+  - **`/teamwork` (Autonomous Swarm)**: Coordinates specialized agents (Coordinator, Researcher, Builder, Reviewer) across parallel and phased workstreams.
+  - **`/boost` (Multi-Perspective Orchestrator)**: High-horsepower multi-agent problem solver with deep reasoning, strategic planning, and multiple critical verification angles.
+  - **`/goal` (Autonomous Goal Loop)**: Persistent loop that continues working until an explicit definition of done is achieved.
+  - **`/plan` & `/grill-me` (Plan & Align)**: Step-by-step architectural planning followed by an interactive interview mode to resolve requirements and edge cases.
+- **Role Composition**: Real-time visual cards for Lead Coordinator, Research Analyst, Builder Developer, and QA Reviewer.
+- **Mission Templates & 1-Click Swarm Launch**: Pre-built mission templates for fullstack authentication, security audits, mobile modernization, and test suite generation.
+
+### 3. 🧩 Skills Catalog & Explorer
+- **Complete Skill Discovery**: Dynamic integration with `agy -p "/skills"` listing all builtin and installed plugin skills (Chrome DevTools, Modern Web Guidance, Android CLI, Compose Preview, Automation, etc.).
+- **Category Filter Pills**: Quick filtering by Builtin, Chrome DevTools, Web Guidance, and Android.
+- **Real-Time Search**: Instant search by skill name, description, and source plugin.
+- **Interactive Documentation Modal**: In-browser rendering of `SKILL.md` instructions, parameter guides, and best practices.
+- **1-Click Chat Invocation**: Pre-fills `/<skill-name>` into the chat input and transitions to the workspace.
+
+### 4. ⚙️ Complete Antigravity Configuration & CLI Suite (100% Feature Parity)
 - **All Session Execution Flags**:
   - `--model`: Real-time discovery via `agy models` (Gemini 4 Argon, Gemini 3.8 Flash, Claude Opus/Sonnet 5.5, GPT-OSS).
   - `--effort`: All 5 reasoning effort tiers (`low`, `medium`, `high`, `xhigh`, `max`).
@@ -87,17 +106,17 @@ When installed on a self-hosted Ubuntu Linux VPS, it allows developers to:
 - **Project Rules & Guidelines**: Directly view and edit `GEMINI.md` and `AGENTS.md` in the browser.
 - **Raw Configuration Editor**: Safe editor for `~/.gemini/settings.json` and `~/.gemini/config/config.json`.
 
-### 3. 📁 Workspace Explorer & In-Browser Code Editor
+### 5. 📁 Workspace Explorer & In-Browser Code Editor
 - **Tree Navigation**: Browse remote project directories with MIME-type icons and modification dates.
 - **Code Editor**: Edit and save files with `Ctrl + S`, featuring automatic `.bak` backup generation.
 - **File Transfer**: Upload files from your local machine to the VPS or download files from the VPS.
 - **Git Integration**: View active branch, uncommitted modifications count, and side-by-side `git diff` outputs.
 
-### 4. 💻 VPS Web Terminal
+### 6. 💻 VPS Web Terminal
 - **Integrated Bash Session**: Execute Linux shell commands remotely without opening an SSH client.
 - **Terminal Capabilities**: Monospace ANSI color rendering, command history (Arrow Up/Down), clear screen, and interactive process termination (Kill switch).
 
-### 5. ⏱️ Autonomous Scheduling & Multi-Channel Webhooks
+### 7. ⏱️ Autonomous Scheduling & Multi-Channel Webhooks
 - **Cron Automations**: Define recurring jobs using standard cron syntax (e.g., `*/30 * * * *`, `@daily`, `every 60 min`).
 - **Unattended 24/7 Execution**: Evaluates schedules in a background daemon loop, launching Antigravity without requiring human interaction.
 - **Instant Webhooks**: Receive completion summaries, token metrics, or failure alerts via:
@@ -106,7 +125,7 @@ When installed on a self-hosted Ubuntu Linux VPS, it allows developers to:
   - **Slack Webhook**
   - **Generic HTTP Webhook** (JSON payload)
 
-### 6. 🛡️ Enterprise Security & Tamper-Evident Audit Trail
+### 8. 🛡️ Enterprise Security & Tamper-Evident Audit Trail
 - **Mandatory Authentication**: All REST API endpoints and WebSockets strictly reject unauthenticated requests.
 - **First-Run Master Setup Wizard**: On initial startup, the user sets their administrator credentials; no hardcoded default passwords exist.
 - **Cryptographic Hashing**: Passwords hashed with high-iteration Bcrypt or PBKDF2-HMAC-SHA256 (600,000 rounds) and unique salts.
@@ -115,7 +134,7 @@ When installed on a self-hosted Ubuntu Linux VPS, it allows developers to:
 - **Path Traversal Defense**: All file queries are validated against the canonical workspace boundary using `Path.relative_to()`.
 - **Append-Only Audit Log**: Every login, task dispatch, file edit, terminal command, and configuration change is recorded in an SQLite database with timestamp (UTC), username, client IP, action, resource, status, and details. Logs can be exported to **CSV** or **JSON**.
 
-### 7. 📱 Mobile-First Responsive Experience
+### 9. 📱 Mobile-First Responsive Experience
 - **Slide-Over Off-Canvas Navigation**: Touch hamburger drawer (`☰`) with smooth sliding animations and frosted backdrop dismiss.
 - **On-the-Go Autonomous Tasks**: Prompt AI from your smartphone with thumb-friendly controls, enlarged `🚀 Run` button, and auto-zoom prevention (16px base input).
 - **Segmented Mobile Workspace Switcher**: Easily toggle between `📁 File Tree` and `📝 Code Editor` tabs on narrow screens; opening a file automatically transitions to the code editor.

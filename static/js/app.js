@@ -16,6 +16,8 @@ const App = {
     // Initialize subsystems
     this.initWebSocket();
     Chat.init();
+    Teamwork.init();
+    Skills.init();
     Explorer.init();
     Terminal.init();
     Usage.init();
@@ -121,6 +123,7 @@ const App = {
 
     // Refresh view data when entered
     if (viewName === "workspace") Explorer.loadDirectory(Explorer.currentDirectory);
+    if (viewName === "skills") Skills.loadSkills();
     if (viewName === "usage") Usage.loadUsage();
     if (viewName === "settings") Settings.loadAll();
     if (viewName === "schedules") Scheduler.loadSchedules();

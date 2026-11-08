@@ -292,6 +292,28 @@ class AntigravityUsageHandler(BaseHandler):
         )
         self.write(data)
 
+class AntigravityCommandsHandler(BaseHandler):
+    @require_auth
+    async def get(self):
+        commands = await settings_manager_instance.get_commands()
+        self.write({"commands": commands})
+
+class AntigravitySkillsHandler(BaseHandler):
+    @require_auth
+    async def get(self):
+        skills = await settings_manager_instance.get_skills()
+        self.write({"skills": skills})
+
+class AntigravitySkillDetailHandler(BaseHandler):
+    @require_auth
+    async def get(self, skill_name: str):
+        detail = await settings_manager_instance.get_skill_detail(skill_name)
+        if not detail:
+            self.set_status(404)
+            self.finish({"error": f"Skill '{skill_name}' not found."})
+            return
+        self.write({"skill": detail})
+
 class AgentTasksHandler(BaseHandler):
     @require_auth
     def get(self):
@@ -1017,6 +1039,9 @@ def make_app():
         (r"/api/antigravity/auth/start", AntigravityAuthStartHandler),
         (r"/api/antigravity/auth/submit", AntigravityAuthSubmitHandler),
         (r"/api/antigravity/usage", AntigravityUsageHandler),
+        (r"/api/antigravity/commands", AntigravityCommandsHandler),
+        (r"/api/antigravity/skills", AntigravitySkillsHandler),
+        (r"/api/antigravity/skills/([^/]+)", AntigravitySkillDetailHandler),
         
         # Antigravity Settings Routes
         (r"/api/settings/models", SettingsModelsHandler),

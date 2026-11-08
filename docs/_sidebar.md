@@ -1,6 +1,7 @@
 * 🚀 **Overview & Getting Started**
   * [Introduction & Features](README.md)
   * [Getting Started Guide](GETTING_STARTED.md)
+  * [Teamwork & Swarms](TEAMWORK_AND_SWARMS.md)
   * [Mobile Experience Guide](MOBILE_GUIDE.md)
 
 * 🏗️ **Core Architecture**

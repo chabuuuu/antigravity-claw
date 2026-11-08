@@ -9,11 +9,27 @@ const Chat = {
   currentThoughtBox: null,
   currentThoughtContent: null,
   activeToolCards: {},
+  commands: [],
+  filteredCommands: [],
+  selectedCommandIndex: 0,
 
   init() {
     this.bindEvents();
     this.loadConversations();
     this.loadAgentsList();
+    this.loadCommands();
+  },
+
+  async loadCommands() {
+    try {
+      const res = await Auth.fetchWithAuth("/api/antigravity/commands");
+      const data = await res.json();
+      if (data && data.commands) {
+        this.commands = data.commands;
+      }
+    } catch (e) {
+      console.warn("Could not load Antigravity commands:", e);
+    }
   },
 
   bindEvents() {
@@ -39,9 +55,67 @@ const Chat = {
     }
 
     textarea.addEventListener("keydown", (e) => {
+      const popup = document.getElementById("slash-commands-popup");
+      const isPopupVisible = popup && popup.style.display !== "none";
+
+      if (isPopupVisible) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          if (this.filteredCommands.length > 0) {
+            this.selectedCommandIndex = (this.selectedCommandIndex + 1) % this.filteredCommands.length;
+            this.updateSlashSelection();
+          }
+          return;
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          if (this.filteredCommands.length > 0) {
+            this.selectedCommandIndex = (this.selectedCommandIndex - 1 + this.filteredCommands.length) % this.filteredCommands.length;
+            this.updateSlashSelection();
+          }
+          return;
+        } else if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          if (this.filteredCommands[this.selectedCommandIndex]) {
+            this.selectSlashCommand(this.filteredCommands[this.selectedCommandIndex]);
+          }
+          return;
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          this.hideSlashPopup();
+          return;
+        }
+      }
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         this.sendPrompt();
+      }
+    });
+
+    // Slash command autocomplete input listener
+    textarea.addEventListener("input", () => {
+      this.handleSlashInput();
+    });
+
+    // Quick Action Chips
+    const quickChips = document.querySelectorAll(".quick-chip");
+    quickChips.forEach(chip => {
+      chip.addEventListener("click", () => {
+        const cmd = chip.dataset.cmd || "";
+        textarea.value = cmd;
+        textarea.focus();
+        if (cmd.endsWith(" ")) {
+          textarea.setSelectionRange(cmd.length, cmd.length);
+        }
+        this.handleSlashInput();
+      });
+    });
+
+    // Close slash popup on click outside
+    document.addEventListener("click", (e) => {
+      const popup = document.getElementById("slash-commands-popup");
+      if (popup && !popup.contains(e.target) && e.target !== textarea) {
+        this.hideSlashPopup();
       }
     });
 
@@ -78,6 +152,94 @@ const Chat = {
         }
       });
     }
+  },
+
+  handleSlashInput() {
+    const textarea = document.getElementById("chat-textarea");
+    if (!textarea) return;
+    const val = textarea.value;
+
+    if (!val.startsWith("/")) {
+      this.hideSlashPopup();
+      return;
+    }
+
+    const match = val.match(/^\/([a-zA-Z0-9_\-:]*)/);
+    if (!match) {
+      this.hideSlashPopup();
+      return;
+    }
+
+    const query = match[1].toLowerCase();
+    this.filteredCommands = (this.commands || []).filter(c => {
+      const name = c.name.toLowerCase().replace(/^\//, "");
+      const desc = (c.description || "").toLowerCase();
+      const cat = (c.category || "").toLowerCase();
+      return name.includes(query) || desc.includes(query) || cat.includes(query);
+    });
+
+    if (this.filteredCommands.length === 0) {
+      this.hideSlashPopup();
+      return;
+    }
+
+    this.selectedCommandIndex = 0;
+    this.renderSlashPopup();
+  },
+
+  renderSlashPopup() {
+    const popup = document.getElementById("slash-commands-popup");
+    const list = document.getElementById("slash-commands-list");
+    if (!popup || !list) return;
+
+    list.innerHTML = "";
+    this.filteredCommands.slice(0, 20).forEach((cmd, idx) => {
+      const item = document.createElement("div");
+      item.className = "slash-item" + (idx === this.selectedCommandIndex ? " selected" : "");
+      item.innerHTML = `
+        <div class="slash-item-left">
+          <span class="slash-item-icon">${cmd.icon || "⚡"}</span>
+          <span class="slash-item-cmd">${cmd.name}</span>
+          <span class="slash-item-desc">${this.escapeHtml(cmd.description || "")}</span>
+        </div>
+        <span class="slash-item-cat">${this.escapeHtml(cmd.category || "Builtin")}</span>
+      `;
+      item.addEventListener("click", () => {
+        this.selectSlashCommand(cmd);
+      });
+      list.appendChild(item);
+    });
+
+    popup.style.display = "flex";
+  },
+
+  updateSlashSelection() {
+    const list = document.getElementById("slash-commands-list");
+    if (!list) return;
+    const items = list.querySelectorAll(".slash-item");
+    items.forEach((item, idx) => {
+      if (idx === this.selectedCommandIndex) {
+        item.classList.add("selected");
+        item.scrollIntoView({ block: "nearest" });
+      } else {
+        item.classList.remove("selected");
+      }
+    });
+  },
+
+  selectSlashCommand(cmd) {
+    const textarea = document.getElementById("chat-textarea");
+    if (!textarea) return;
+    const cmdText = cmd.name + " ";
+    textarea.value = cmdText;
+    textarea.focus();
+    textarea.setSelectionRange(cmdText.length, cmdText.length);
+    this.hideSlashPopup();
+  },
+
+  hideSlashPopup() {
+    const popup = document.getElementById("slash-commands-popup");
+    if (popup) popup.style.display = "none";
   },
 
   async loadConversations() {
@@ -231,6 +393,83 @@ const Chat = {
         }
       } catch (e) {
         this.appendErrorMessage("Failed to fetch quota: " + e.message);
+      } finally {
+        this.setExecutionState(false);
+      }
+      return;
+    }
+
+    // Intercept /help slash command for command cheat-sheet
+    if (prompt === "/help") {
+      this.appendUserMessage(prompt);
+      this.setExecutionState(true);
+      this.prepareAssistantBubble();
+      let helpContent = `
+        <h4 style="margin:0 0 8px; color:var(--accent-blue);">⚡ Antigravity CLI Slash Commands & Swarms</h4>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Type <code>/</code> in the input box anytime for interactive autocomplete.</p>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="background:#0d1117; padding:8px 10px; border-radius:6px; border:1px solid var(--border-color);">
+            <strong style="color:#79c0ff; font-family:var(--font-mono);">/teamwork &lt;goal&gt;</strong>: Autonomous team of agents (Coordinator, Researcher, Builder, QA) collaborating on complex missions.
+          </div>
+          <div style="background:#0d1117; padding:8px 10px; border-radius:6px; border:1px solid var(--border-color);">
+            <strong style="color:#79c0ff; font-family:var(--font-mono);">/boost &lt;goal&gt;</strong>: Boost multi-agent orchestrator with deep reasoning, strategic planning, and multiple critical perspectives.
+          </div>
+          <div style="background:#0d1117; padding:8px 10px; border-radius:6px; border:1px solid var(--border-color);">
+            <strong style="color:#79c0ff; font-family:var(--font-mono);">/plan &lt;goal&gt;</strong>: Plan step-by-step architecture and execution milestones before writing code.
+          </div>
+          <div style="background:#0d1117; padding:8px 10px; border-radius:6px; border:1px solid var(--border-color);">
+            <strong style="color:#79c0ff; font-family:var(--font-mono);">/grill-me</strong>: Interactive interview mode to drill down into requirements, edge cases, and design choices.
+          </div>
+          <div style="background:#0d1117; padding:8px 10px; border-radius:6px; border:1px solid var(--border-color);">
+            <strong style="color:#79c0ff; font-family:var(--font-mono);">/goal &lt;goal&gt;</strong>: Autonomous loop running until complete definition of done is achieved.
+          </div>
+          <div style="background:#0d1117; padding:8px 10px; border-radius:6px; border:1px solid var(--border-color);">
+            <strong style="color:#79c0ff; font-family:var(--font-mono);">/learn</strong>: Reflect on recent successes or corrections to capture reusable skills or rules.
+          </div>
+          <div style="background:#0d1117; padding:8px 10px; border-radius:6px; border:1px solid var(--border-color);">
+            <strong style="color:#79c0ff; font-family:var(--font-mono);">/usage (or /quota)</strong>: View real-time token quotas and rate limits across Gemini, Claude, and GPT models.
+          </div>
+          <div style="background:#0d1117; padding:8px 10px; border-radius:6px; border:1px solid var(--border-color);">
+            <strong style="color:#79c0ff; font-family:var(--font-mono);">/skills</strong>: List and explore all 30+ installed Antigravity CLI skills.
+          </div>
+        </div>
+      `;
+      this.currentAssistantContent.innerHTML = helpContent;
+      this.setExecutionState(false);
+      return;
+    }
+
+    // Intercept /skills slash command for instant grid card
+    if (prompt === "/skills") {
+      this.appendUserMessage(prompt);
+      this.setExecutionState(true);
+      this.prepareAssistantBubble();
+      try {
+        const res = await fetch("/api/antigravity/skills", { headers: Auth.getAuthHeaders() });
+        const data = await res.json();
+        const skills = data.skills || [];
+        let skillsHtml = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h4 style="margin:0; color:var(--accent-blue);">🧩 Antigravity Skills (${skills.length})</h4>
+            <button type="button" class="btn-secondary" style="padding:4px 10px; font-size:11px;" onclick="App.switchView('skills')">Open Skills Catalog ➔</button>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:8px;">
+        `;
+        skills.forEach(s => {
+          skillsHtml += `
+            <div style="background:#0d1117; border:1px solid var(--border-color); border-radius:6px; padding:8px 10px; display:flex; flex-direction:column; gap:4px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:#79c0ff;">/${s.name}</span>
+                <span style="font-size:9px; padding:1px 5px; border-radius:6px; background:${s.builtin ? 'rgba(46,160,67,0.2)' : 'rgba(56,139,253,0.2)'}; color:${s.builtin ? '#7ee787' : '#a5d6ff'};">${s.plugin || 'builtin'}</span>
+              </div>
+              <p style="font-size:11px; color:var(--text-muted); margin:0; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.description || ''}</p>
+            </div>
+          `;
+        });
+        skillsHtml += `</div>`;
+        this.currentAssistantContent.innerHTML = skillsHtml;
+      } catch (e) {
+        this.appendErrorMessage("Failed to load skills: " + e.message);
       } finally {
         this.setExecutionState(false);
       }

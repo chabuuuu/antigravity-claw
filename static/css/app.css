@@ -1648,4 +1648,625 @@ body {
   }
 }
 
+/* =====================================================================
+   ANTIGRAVITY SLASH COMMANDS & QUICK ACTIONS BAR
+   ===================================================================== */
+.quick-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(13, 17, 23, 0.7);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+}
+
+.quick-actions-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.quick-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.quick-chip:hover {
+  background: rgba(56, 139, 253, 0.15);
+  border-color: var(--accent-blue);
+  color: #a5d6ff;
+  transform: translateY(-1px);
+}
+
+.quick-chip:active {
+  transform: translateY(0);
+}
+
+/* Slash Commands Floating Popup */
+.chat-input-wrapper {
+  position: relative;
+}
+
+.slash-commands-popup {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 340px;
+  background: #161b22;
+  border: 1px solid var(--accent-blue);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 12px rgba(56, 139, 253, 0.25);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.slash-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #0d1117;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.slash-popup-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.slash-popup-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.slash-commands-list {
+  overflow-y: auto;
+  max-height: 290px;
+  padding: 4px;
+}
+
+.slash-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.slash-item:hover,
+.slash-item.selected {
+  background: rgba(56, 139, 253, 0.16);
+  border-color: rgba(56, 139, 253, 0.4);
+}
+
+.slash-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.slash-item-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.slash-item-cmd {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: #79c0ff;
+  white-space: nowrap;
+}
+
+.slash-item-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slash-item-cat {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* =====================================================================
+   TEAMWORK & MULTI-AGENT SWARM STUDIO
+   ===================================================================== */
+.teamwork-container {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.teamwork-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 20px;
+  align-items: start;
+}
+
+.teamwork-main-card,
+.teamwork-sidebar-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.card-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-heading {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.section-help {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.teamwork-textarea {
+  min-height: 100px;
+  resize: vertical;
+  line-height: 1.5;
+  font-family: var(--font-main);
+  font-size: 13px;
+}
+
+.strategy-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.strategy-card {
+  position: relative;
+  background: #0d1117;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.strategy-card:hover {
+  border-color: rgba(56, 139, 253, 0.5);
+  background: #121820;
+}
+
+.strategy-card.active {
+  border-color: var(--accent-blue);
+  background: rgba(56, 139, 253, 0.12);
+  box-shadow: 0 0 12px rgba(56, 139, 253, 0.2);
+}
+
+.strategy-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--accent-blue);
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.strategy-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.strategy-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.strategy-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-bright);
+  font-family: var(--font-mono);
+}
+
+.strategy-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Team Roles Grid */
+.team-roles-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.role-card {
+  background: #0d1117;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-left: 3px solid var(--accent-blue);
+}
+
+.role-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.role-icon {
+  font-size: 15px;
+}
+
+.role-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-bright);
+  flex: 1;
+}
+
+.role-status-badge {
+  font-size: 9px;
+  background: rgba(46, 160, 67, 0.2);
+  color: #7ee787;
+  padding: 1px 5px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.role-desc {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.teamwork-footer-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-large {
+  padding: 10px 22px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Sidebar Blocks */
+.sidebar-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.block-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.protocol-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.protocol-step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: #0d1117;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.step-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.step-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.step-text strong {
+  color: var(--text-bright);
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.template-item {
+  background: #0d1117;
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.3;
+}
+
+.template-item:hover {
+  background: rgba(56, 139, 253, 0.12);
+  border-color: var(--accent-blue);
+  color: #a5d6ff;
+}
+
+/* =====================================================================
+   SKILLS CATALOG & EXPLORER
+   ===================================================================== */
+.skills-container {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.skills-filter-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-card);
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input-wrapper .search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.search-input-wrapper input {
+  padding-left: 36px;
+  width: 100%;
+}
+
+.filter-pills-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-pill {
+  background: #0d1117;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 4px 12px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-pill:hover {
+  color: var(--text-bright);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.filter-pill.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: #ffffff;
+}
+
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.skill-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.skill-card:hover {
+  border-color: rgba(56, 139, 253, 0.5);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.skill-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.skill-card-title {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: #79c0ff;
+  word-break: break-all;
+}
+
+.skill-plugin-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(56, 139, 253, 0.15);
+  color: #a5d6ff;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.skill-plugin-badge.builtin {
+  background: rgba(46, 160, 67, 0.15);
+  color: #7ee787;
+}
+
+.skill-card-desc {
+  font-size: 12px;
+  color: var(--text-color);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.skill-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.skill-card-actions button {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+/* =====================================================================
+   MOBILE RESPONSIVE ADAPTATIONS FOR TEAMWORK & SKILLS
+   ===================================================================== */
+@media screen and (max-width: 900px) {
+  .teamwork-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .strategy-selector-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .team-roles-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .team-roles-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .skills-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teamwork-container,
+  .skills-container {
+    padding: 12px 14px;
+  }
+
+  .slash-commands-popup {
+    max-height: 250px;
+  }
+
+  .slash-item-desc {
+    display: none;
+  }
+}
+
+
 

@@ -24,6 +24,158 @@ from backend.database import get_db_connection
 
 logger = logging.getLogger("openclaw.settings_manager")
 
+BUILTIN_SLASH_COMMANDS = [
+    {
+        "name": "/teamwork",
+        "description": "Invoke a team of agents to autonomously tackle large projects.",
+        "category": "Multi-Agent Swarm",
+        "example": "/teamwork Build a fullstack authentication flow with JWT and audit logs",
+        "icon": "👥",
+    },
+    {
+        "name": "/boost",
+        "description": "Invoke the Boost multi-agent orchestrator for complex tasks.",
+        "category": "Multi-Agent Swarm",
+        "example": "/boost Refactor database layer for connection pooling and high concurrency",
+        "icon": "🚀",
+    },
+    {
+        "name": "/plan",
+        "description": "Plan carefully before executing a task.",
+        "category": "Workflows",
+        "example": "/plan Design microservices architecture for real-time payments",
+        "icon": "📋",
+    },
+    {
+        "name": "/grill-me",
+        "description": "Interview me to align on a plan.",
+        "category": "Interactive",
+        "example": "/grill-me Ask questions to clarify requirements for new billing engine",
+        "icon": "💬",
+    },
+    {
+        "name": "/goal",
+        "description": "Run long-running autonomous task until the goal is fully achieved.",
+        "category": "Autonomous",
+        "example": "/goal Run overnight test suite and fix all linting and test failures",
+        "icon": "🎯",
+    },
+    {
+        "name": "/learn",
+        "description": "Reflect on recent successes or corrections to capture reusable skills or rules.",
+        "category": "Memory & Knowledge",
+        "example": "/learn Document guidelines for writing Tornado websocket handlers",
+        "icon": "🧠",
+    },
+    {
+        "name": "/browser",
+        "description": "Browse the web, search, or interact with web applications.",
+        "category": "Browser Tools",
+        "example": "/browser Verify checkout flow on staging site with Chrome DevTools",
+        "icon": "🌐",
+    },
+    {
+        "name": "/schedule",
+        "description": "Run an instruction on a recurring schedule or set a one-time timer.",
+        "category": "Automation",
+        "example": "/schedule Run daily security scan every morning at 9am",
+        "icon": "⏱️",
+    },
+    {
+        "name": "/compact",
+        "description": "Compact or summarize the context to free up context window.",
+        "category": "Session",
+        "example": "/compact",
+        "icon": "📦",
+    },
+    {
+        "name": "/usage",
+        "aliases": ["/quota"],
+        "description": "View model quota usage and remaining rate limits.",
+        "category": "System",
+        "example": "/usage",
+        "icon": "📊",
+    },
+    {
+        "name": "/agents",
+        "description": "List available custom agents and subagents.",
+        "category": "Configuration",
+        "example": "/agents",
+        "icon": "🤖",
+    },
+    {
+        "name": "/skills",
+        "description": "List available skills and capabilities.",
+        "category": "Configuration",
+        "example": "/skills",
+        "icon": "🧩",
+    },
+    {
+        "name": "/permissions",
+        "description": "Manage tool permissions and confirmation prompts.",
+        "category": "Security",
+        "example": "/permissions",
+        "icon": "🛡️",
+    },
+    {
+        "name": "/config",
+        "aliases": ["/settings"],
+        "description": "Open settings panel and system configuration.",
+        "category": "Configuration",
+        "example": "/config",
+        "icon": "⚙️",
+    },
+    {
+        "name": "/plugin",
+        "description": "Manage, discover, install, uninstall, enable, and disable plugins.",
+        "category": "Plugins",
+        "example": "/plugin",
+        "icon": "🔌",
+    },
+    {
+        "name": "/credits",
+        "description": "Show remaining G1 credits and purchase link.",
+        "category": "System",
+        "example": "/credits",
+        "icon": "💳",
+    },
+    {
+        "name": "/changelog",
+        "description": "Show release notes and changes.",
+        "category": "System",
+        "example": "/changelog",
+        "icon": "📜",
+    },
+    {
+        "name": "/help",
+        "description": "Show available commands and keybindings.",
+        "category": "System",
+        "example": "/help",
+        "icon": "❓",
+    },
+    {
+        "name": "/model",
+        "description": "Set a model, or run a single prompt on another model.",
+        "category": "Configuration",
+        "example": "/model gemini-4-argon",
+        "icon": "🔀",
+    },
+    {
+        "name": "/effort",
+        "description": "Set the reasoning effort (low, medium, high).",
+        "category": "Configuration",
+        "example": "/effort high",
+        "icon": "⚡",
+    },
+    {
+        "name": "/hooks",
+        "description": "Manage hook configurations for tool events.",
+        "category": "System",
+        "example": "/hooks",
+        "icon": "🪝",
+    }
+]
+
 class SettingsManager:
     def __init__(self):
         self.home_dir = Path.home()
@@ -512,6 +664,124 @@ class SettingsManager:
             "groups": groups,
             "token_analytics": token_analytics
         }
+
+    async def get_skills(self) -> List[Dict[str, Any]]:
+        """
+        Retrieves all installed and builtin skills by running `agy -p "/skills" --output-format json`.
+        """
+        code, out, err = await self._run_agy_subcommand(["-p", "/skills", "--output-format", "json"])
+        skills: List[Dict[str, Any]] = []
+        if code == 0 and out.strip():
+            try:
+                data = json.loads(out)
+                parsed_skills = data.get("command", {}).get("data", {}).get("skills", [])
+                if isinstance(parsed_skills, list) and parsed_skills:
+                    skills = parsed_skills
+            except Exception as e:
+                logger.error("Failed to parse /skills json: %s", e)
+
+        # If empty or CLI error, provide fallback builtin skills
+        if not skills:
+            skills = [
+                {
+                    "name": "agy-customizations",
+                    "description": "Comprehensive guide and reference for the Antigravity Customization System.",
+                    "builtin": True,
+                    "plugin": None
+                },
+                {
+                    "name": "automation",
+                    "description": "Interactive guide to design and create a scheduled background automation.",
+                    "builtin": True,
+                    "plugin": None
+                },
+                {
+                    "name": "antigravity-guide",
+                    "description": "Comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY).",
+                    "builtin": True,
+                    "plugin": None
+                },
+                {
+                    "name": "run-workflow",
+                    "description": "How to write and run dynamic multi-agent workflow scripts with the run_workflow tool.",
+                    "builtin": True,
+                    "plugin": None
+                },
+                {
+                    "name": "modern-web-guidance",
+                    "description": "Search tool for modern web development best practices.",
+                    "builtin": False,
+                    "plugin": "modern-web-guidance-plugin"
+                },
+                {
+                    "name": "chrome-devtools",
+                    "description": "Uses Chrome DevTools via MCP for efficient debugging, troubleshooting and browser automation.",
+                    "builtin": False,
+                    "plugin": "chrome-devtools-plugin"
+                }
+            ]
+
+        return skills
+
+    async def get_skill_detail(self, skill_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetches full SKILL.md markdown content for a given skill.
+        """
+        skills = await self.get_skills()
+        target = None
+        for s in skills:
+            if s.get("name") == skill_name:
+                target = s
+                break
+        if not target:
+            return None
+
+        content = ""
+        path_str = target.get("path")
+        if path_str and os.path.isfile(path_str):
+            try:
+                content = Path(path_str).read_text(encoding="utf-8", errors="replace")
+            except Exception as e:
+                logger.error("Error reading skill file %s: %s", path_str, e)
+                content = f"Error reading skill doc: {e}"
+
+        return {
+            "name": target.get("name"),
+            "description": target.get("description"),
+            "plugin": target.get("plugin"),
+            "builtin": target.get("builtin", False),
+            "path": target.get("path"),
+            "content": content
+        }
+
+    async def get_commands(self) -> List[Dict[str, Any]]:
+        """
+        Retrieves all available Antigravity slash commands and skills for autocomplete and quick action menus.
+        """
+        commands = list(BUILTIN_SLASH_COMMANDS)
+        try:
+            skills = await self.get_skills()
+            for s in skills:
+                name = s.get("name")
+                if not name:
+                    continue
+                cmd_name = f"/{name}"
+                # Avoid duplicate if already in builtin list
+                if any(c["name"] == cmd_name for c in commands):
+                    continue
+                commands.append({
+                    "name": cmd_name,
+                    "description": s.get("description", ""),
+                    "category": f"Skill: {s.get('plugin') or 'Builtin'}",
+                    "example": f"{cmd_name} <task instructions>",
+                    "icon": "🧩",
+                    "plugin": s.get("plugin"),
+                    "builtin": s.get("builtin", False)
+                })
+        except Exception as e:
+            logger.error("Error merging skills into commands: %s", e)
+
+        return commands
 
 settings_manager_instance = SettingsManager()
 

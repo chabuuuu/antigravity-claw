@@ -61,6 +61,14 @@
           <span class="icon">💬</span>
           <span>Agent Workspace</span>
         </div>
+        <div class="nav-item" data-view="teamwork">
+          <span class="icon">👥</span>
+          <span>Teamwork & Swarm</span>
+        </div>
+        <div class="nav-item" data-view="skills">
+          <span class="icon">🧩</span>
+          <span>Skills Catalog</span>
+        </div>
         <div class="nav-item" data-view="workspace">
           <span class="icon">📁</span>
           <span>Files & Editor</span>
@@ -266,8 +274,34 @@
               </div>
             </div>
 
+            <!-- Quick Actions Bar -->
+            <div id="quick-actions-bar" class="quick-actions-bar">
+              <span class="quick-actions-label">⚡ Quick:</span>
+              <button type="button" class="quick-chip" data-cmd="/teamwork " title="Invoke a team of agents to autonomously tackle large projects">👥 Teamwork</button>
+              <button type="button" class="quick-chip" data-cmd="/boost " title="Invoke the Boost multi-agent orchestrator for complex tasks">🚀 Boost</button>
+              <button type="button" class="quick-chip" data-cmd="/plan " title="Plan carefully before executing a task">📋 Plan</button>
+              <button type="button" class="quick-chip" data-cmd="/grill-me " title="Interview me to align on a plan">💬 Grill-Me</button>
+              <button type="button" class="quick-chip" data-cmd="/goal " title="Run long-running autonomous task until the goal is fully achieved">🎯 Goal</button>
+              <button type="button" class="quick-chip" data-cmd="/learn " title="Reflect on recent successes or corrections to capture reusable skills or rules">🧠 Learn</button>
+              <button type="button" class="quick-chip" data-cmd="/browser " title="Browse the web, search, or interact with web applications">🌐 Browser</button>
+              <button type="button" class="quick-chip" data-cmd="/usage" title="View model quota usage">📊 Usage</button>
+              <button type="button" class="quick-chip" data-cmd="/skills" title="List available skills">🧩 Skills</button>
+              <button type="button" class="quick-chip" data-cmd="/help" title="Show available commands and keybindings">❓ Help</button>
+            </div>
+
+            <!-- Slash Commands Autocomplete Popup -->
+            <div id="slash-commands-popup" class="slash-commands-popup" style="display: none;">
+              <div class="slash-popup-header">
+                <span class="slash-popup-title">⚡ Antigravity Slash Commands</span>
+                <span class="slash-popup-hint">↑/↓ Navigate • Enter/Tab Select • Esc Dismiss</span>
+              </div>
+              <div id="slash-commands-list" class="slash-commands-list">
+                <!-- Dynamically populated from /api/antigravity/commands -->
+              </div>
+            </div>
+
             <div class="chat-input-row">
-              <textarea id="chat-textarea" placeholder="Ask Antigravity to do a task, fix code, inspect files, or run tests... (Press Enter to send, Shift+Enter for new line)"></textarea>
+              <textarea id="chat-textarea" placeholder="Ask Antigravity or type '/' for slash commands (e.g. /teamwork, /boost, /plan)... (Press Enter to send, Shift+Enter for new line)"></textarea>
               <button id="btn-chat-send" class="btn-send">
                 <span>🚀 Run</span>
               </button>
@@ -275,6 +309,188 @@
                 <span>🛑 Stop</span>
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: TEAMWORK & MULTI-AGENT SWARM STUDIO -->
+      <div id="view-teamwork" class="view-panel">
+        <div class="teamwork-container">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-title">👥 Teamwork & Multi-Agent Swarm</h2>
+              <p class="panel-subtitle">Harness autonomous teams of specialized AI agents working in concert on complex missions.</p>
+            </div>
+            <button id="btn-teamwork-to-chat" class="btn-secondary">💬 Go to Chat Workspace</button>
+          </div>
+
+          <div class="teamwork-grid">
+            <!-- Left / Center: Swarm Configurator -->
+            <div class="teamwork-main-card">
+              <div class="card-section">
+                <label class="section-heading" for="teamwork-mission-input">1. Project Mission & Deliverables</label>
+                <p class="section-help">Describe your goal, code requirements, architecture, constraints, or bug investigation.</p>
+                <textarea id="teamwork-mission-input" class="form-input teamwork-textarea" rows="4" placeholder="e.g. Build an end-to-end OAuth2 authentication flow with JWT tokens, refresh tokens, rate limiting middleware, automated unit tests, and OpenAPI documentation..."></textarea>
+              </div>
+
+              <div class="card-section">
+                <label class="section-heading">2. Multi-Agent Strategy</label>
+                <div class="strategy-selector-grid">
+                  <div class="strategy-card active" data-strategy="teamwork">
+                    <div class="strategy-badge">Recommended</div>
+                    <div class="strategy-icon">👥</div>
+                    <div class="strategy-body">
+                      <div class="strategy-name">/teamwork (Swarm Team)</div>
+                      <div class="strategy-desc">Autonomous multi-agent team decomposing complex problems into parallel and phased workstreams.</div>
+                    </div>
+                  </div>
+                  <div class="strategy-card" data-strategy="boost">
+                    <div class="strategy-icon">🚀</div>
+                    <div class="strategy-body">
+                      <div class="strategy-name">/boost (Multi-Perspective)</div>
+                      <div class="strategy-desc">Boost multi-agent orchestrator for complex challenges with multiple critical perspectives & verification.</div>
+                    </div>
+                  </div>
+                  <div class="strategy-card" data-strategy="goal">
+                    <div class="strategy-icon">🎯</div>
+                    <div class="strategy-body">
+                      <div class="strategy-name">/goal (Autonomous Goal)</div>
+                      <div class="strategy-desc">Persistent goal loop executing continuously until complete definition of done is achieved.</div>
+                    </div>
+                  </div>
+                  <div class="strategy-card" data-strategy="plan">
+                    <div class="strategy-icon">📋</div>
+                    <div class="strategy-body">
+                      <div class="strategy-name">/plan & /grill-me (Planning)</div>
+                      <div class="strategy-desc">Architectural planning followed by interactive interview to drill down into requirements and edge cases.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-section">
+                <label class="section-heading">3. Active Agent Team Roles</label>
+                <div class="team-roles-grid">
+                  <div class="role-card active">
+                    <div class="role-top">
+                      <span class="role-icon">👑</span>
+                      <span class="role-title">Coordinator Agent</span>
+                      <span class="role-status-badge">Lead</span>
+                    </div>
+                    <p class="role-desc">Analyzes objectives, splits tasks into subagent phases, assigns roles, and aggregates deliverables.</p>
+                  </div>
+                  <div class="role-card active">
+                    <div class="role-top">
+                      <span class="role-icon">🔍</span>
+                      <span class="role-title">Research Agent</span>
+                      <span class="role-status-badge">Analysis</span>
+                    </div>
+                    <p class="role-desc">Deep codebase indexing, official documentation search, API discovery, and dependency auditing.</p>
+                  </div>
+                  <div class="role-card active">
+                    <div class="role-top">
+                      <span class="role-icon">🛠️</span>
+                      <span class="role-title">Builder Agent</span>
+                      <span class="role-status-badge">Execution</span>
+                    </div>
+                    <p class="role-desc">Generates code, applies diffs, updates configurations, builds assets, and runs database migrations.</p>
+                  </div>
+                  <div class="role-card active">
+                    <div class="role-top">
+                      <span class="role-icon">🧪</span>
+                      <span class="role-title">QA & Reviewer</span>
+                      <span class="role-status-badge">Verification</span>
+                    </div>
+                    <p class="role-desc">Executes test suites, verifies edge cases, checks code formatting, and certifies production readiness.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="teamwork-footer-bar">
+                <button id="btn-launch-swarm" class="btn-primary btn-large">
+                  <span>🚀 Launch Teamwork Swarm</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Right: Swarm Architecture & Quick Templates -->
+            <div class="teamwork-sidebar-card">
+              <div class="sidebar-block">
+                <h3 class="block-title">Swarm Protocol Workflow</h3>
+                <div class="protocol-steps">
+                  <div class="protocol-step">
+                    <div class="step-num">1</div>
+                    <div class="step-text"><strong>Decomposition:</strong> Coordinator maps tasks, dependencies, and validation criteria.</div>
+                  </div>
+                  <div class="protocol-step">
+                    <div class="step-num">2</div>
+                    <div class="step-text"><strong>Parallel Swarm:</strong> Researcher and Builder agents work in parallel sandboxes.</div>
+                  </div>
+                  <div class="protocol-step">
+                    <div class="step-num">3</div>
+                    <div class="step-text"><strong>Peer Review:</strong> QA agent executes linters, tests, and validates results.</div>
+                  </div>
+                  <div class="protocol-step">
+                    <div class="step-num">4</div>
+                    <div class="step-text"><strong>Streaming Synthesis:</strong> OpenClaw streams live outputs and persists steps in SQLite.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sidebar-block">
+                <h3 class="block-title">Mission Templates</h3>
+                <div class="template-list">
+                  <button type="button" class="template-item" data-template="Design and implement a fullstack authentication system with JWT, bcrypt password hashing, refresh tokens, session revocation, and security audit logs.">
+                    🔐 Full Authentication System
+                  </button>
+                  <button type="button" class="template-item" data-template="Conduct a comprehensive security audit of this codebase, identify vulnerabilities, check OWASP risks, and generate remediation patches.">
+                    🛡️ Full Security & Vulnerability Audit
+                  </button>
+                  <button type="button" class="template-item" data-template="Refactor codebase for mobile responsiveness, optimize accessibility (a11y), improve Core Web Vitals (LCP/CLS), and verify cross-browser compatibility.">
+                    📱 Mobile & Accessibility Modernization
+                  </button>
+                  <button type="button" class="template-item" data-template="Write a comprehensive test suite covering all REST endpoints, WebSocket connections, edge cases, and mocking external services.">
+                    🧪 Automated Test Suite & Coverage
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: SKILLS CATALOG & EXPLORER -->
+      <div id="view-skills" class="view-panel">
+        <div class="skills-container">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <h2 class="panel-title">🧩 Antigravity Skills Catalog</h2>
+              <p class="panel-subtitle">Explore and invoke installed skills and extensions powered by the Antigravity CLI engine.</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button id="btn-refresh-skills" class="btn-secondary">🔄 Refresh</button>
+              <button id="btn-skills-to-chat" class="btn-secondary">💬 Return to Chat</button>
+            </div>
+          </div>
+
+          <!-- Search and Filter Bar -->
+          <div class="skills-filter-container">
+            <div class="search-input-wrapper">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="skills-search-input" class="form-input" placeholder="Search skills by name, description, plugin (e.g. devtools, web, android, workflow)...">
+            </div>
+            <div class="filter-pills-row" id="skills-filter-pills">
+              <button type="button" class="filter-pill active" data-category="all">All Skills</button>
+              <button type="button" class="filter-pill" data-category="builtin">Builtin</button>
+              <button type="button" class="filter-pill" data-category="chrome-devtools">Chrome DevTools</button>
+              <button type="button" class="filter-pill" data-category="modern-web">Web Guidance</button>
+              <button type="button" class="filter-pill" data-category="android">Android</button>
+            </div>
+          </div>
+
+          <!-- Skills Grid -->
+          <div id="skills-grid" class="skills-grid">
+            <!-- Dynamically populated from /api/antigravity/skills -->
           </div>
         </div>
       </div>
@@ -911,9 +1127,29 @@
     </div>
   </div>
 
+  <!-- Modal: Skill Documentation Viewer -->
+  <div id="skill-doc-modal" class="modal-overlay">
+    <div class="modal-dialog" style="max-width: 720px;">
+      <div class="modal-header">
+        <span id="skill-doc-modal-title">Skill Documentation</span>
+        <button class="btn-icon modal-close" id="btn-skill-doc-close">✕</button>
+      </div>
+      <div class="modal-body" style="max-height: 520px; overflow-y: auto;">
+        <div id="skill-doc-modal-meta" style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap;"></div>
+        <div id="skill-doc-modal-body" class="markdown-body" style="font-size: 13px; line-height: 1.6; color: var(--text-color);"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-skill-doc-invoke" class="btn-primary">🚀 Invoke Skill in Chat</button>
+        <button class="btn-secondary modal-close">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="/static/js/auth.js"></script>
   <script src="/static/js/chat.js"></script>
+  <script src="/static/js/teamwork.js"></script>
+  <script src="/static/js/skills.js"></script>
   <script src="/static/js/explorer.js"></script>
   <script src="/static/js/terminal.js"></script>
   <script src="/static/js/usage.js"></script>
