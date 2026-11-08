@@ -43,6 +43,22 @@ const Auth = {
     return headers;
   },
 
+  async fetchWithAuth(url, options = {}) {
+    const defaultHeaders = this.getAuthHeaders();
+    if (options.body instanceof FormData) {
+      delete defaultHeaders["Content-Type"];
+    }
+    const headers = Object.assign({}, defaultHeaders, options.headers || {});
+    const opts = Object.assign({}, options, { headers });
+    const res = await fetch(url, opts);
+    if (res.status === 401) {
+      this.token = null;
+      localStorage.removeItem("openclaw_token");
+      this.showLoginModal();
+    }
+    return res;
+  },
+
   showLoginModal() {
     const modal = document.getElementById("auth-modal");
     document.getElementById("auth-modal-title").innerText = "Sign In to OpenClaw";
