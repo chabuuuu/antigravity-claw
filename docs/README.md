@@ -66,3 +66,4 @@ Monitor your Google Antigravity quotas directly from the web interface:
 - [🐳 Docker Deployment](DOCKER_DEPLOYMENT.md): Container configuration, volume mounts, DNS settings, and GHCR registry.
 - [🖥️ Ubuntu VPS Deployment](DEPLOYMENT_VPS_UBUNTU.md): Production Nginx reverse proxy, SSL with Let's Encrypt, and systemd services.
 - [📖 REST & WebSocket API](API_REFERENCE.md): Complete API endpoint and WebSocket schema specifications.
+

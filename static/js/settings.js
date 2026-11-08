@@ -225,7 +225,7 @@ const Settings = {
           const opt = document.createElement("option");
           opt.value = m.id;
           opt.innerText = m.name;
-          if (m.id.includes("gemini-3.8-flash") || m.id.includes("gemini-4-argon")) {
+          if (m.id === "gemini-3.8-flash") {
             opt.selected = true;
           }
           chatModelSelect.appendChild(opt);

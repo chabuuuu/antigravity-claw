@@ -60,3 +60,4 @@ Every sensitive action performed on OpenClaw is recorded in an append-only SQLit
 3. Export audit logs for compliance or external SIEM analysis:
    - Click **Export CSV** for spreadsheet analysis.
    - Click **Export JSON** for programmatic ingestion.
+

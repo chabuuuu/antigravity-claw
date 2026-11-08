@@ -146,10 +146,28 @@ class AntigravityRunner:
         
         if auto_approve:
             cmd.append("--dangerously-skip-permissions")
+
+        clean_model = None
         if model:
-            cmd.extend(["--model", model])
+            # Strip any trailing tabs, display names or whitespace
+            clean_model = model.split("\t")[0].split()[0].strip()
+
+            # Normalize baked-in effort suffix if present (e.g. gemini-3.8-flash-low -> gemini-3.8-flash)
+            m = re.match(r"^(gemini-4-argon|gemini-3.8-flash|claude-opus-5-5|claude-sonnet-5-5)-(low|medium|high|xhigh|max)$", clean_model)
+            if m:
+                base_name = m.group(1)
+                if effort:
+                    clean_model = base_name
+                else:
+                    effort = m.group(2)
+                    clean_model = base_name
+
+            cmd.extend(["--model", clean_model])
+
         if effort:
-            cmd.extend(["--effort", effort])
+            # gpt-oss models only support medium effort; omit --effort flag to prevent conflict errors
+            if not (clean_model and "gpt-oss" in clean_model):
+                cmd.extend(["--effort", effort])
         if mode and mode not in ("auto", "default", ""):
             cmd.extend(["--mode", mode])
         if sandbox:

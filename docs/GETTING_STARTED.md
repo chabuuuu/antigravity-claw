@@ -98,3 +98,4 @@ To update to the latest version:
 docker compose pull
 docker compose up -d
 ```
+

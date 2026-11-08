@@ -77,3 +77,4 @@ You can install OpenClaw as an app icon on your smartphone:
 2. Tap the **Three Dots Menu (`⋮`)** in the top-right corner.
 3. Tap **Install app** or **Add to Home Screen**.
 4. Launch OpenClaw directly from your app drawer!
+

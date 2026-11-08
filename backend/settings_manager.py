@@ -50,32 +50,52 @@ class SettingsManager:
     async def get_models(self) -> List[Dict[str, str]]:
         """
         Retrieves available models by running `agy models` or falls back to known defaults.
+        Extracts base model families to match Antigravity CLI's interactive model switcher.
         """
         code, out, err = await self._run_agy_subcommand(["models"])
         models = []
+        seen_base_ids = set()
+        
+        # Canonical base models matching Antigravity CLI interactive switcher
+        canonical_base = [
+            {"id": "gemini-4-argon", "name": "Gemini 4 Argon"},
+            {"id": "gemini-3.8-flash", "name": "Gemini 3.8 Flash"},
+            {"id": "claude-opus-5-5", "name": "Claude Opus 5.5"},
+            {"id": "claude-sonnet-5-5", "name": "Claude Sonnet 5.5"},
+            {"id": "gpt-oss-120b-medium", "name": "GPT-OSS 120B (Medium)"}
+        ]
+
         if code == 0 and out.strip():
             for line in out.splitlines():
                 line = re.sub(r"^[⠋⠙⠹⠸⠼⠴⠦⠧⠇]\s+Fetching available models\.\.\.", "", line).strip()
                 if not line or "Fetching available models" in line:
                     continue
-                parts = re.split(r"\s{2,}", line, maxsplit=1)
-                if len(parts) == 2:
-                    models.append({"id": parts[0].strip(), "name": parts[1].strip()})
-                elif len(parts) == 1 and parts[0]:
-                    models.append({"id": parts[0].strip(), "name": parts[0].strip()})
-                    
+                # Split by tab or 2+ spaces
+                parts = [p.strip() for p in re.split(r"\t+|\s{2,}", line) if p.strip()]
+                if len(parts) >= 2:
+                    raw_id = parts[0]
+                    raw_name = parts[1]
+                elif len(parts) == 1:
+                    raw_id = parts[0]
+                    raw_name = parts[0]
+                else:
+                    continue
+
+                # Strip baked-in effort suffix to extract clean base model ID & display name
+                base_id = re.sub(r"-(low|medium|high|xhigh|max)$", "", raw_id)
+                base_name = re.sub(r"\s*\((Low|Medium|High|X-High|Max)\)\s*$", "", raw_name, flags=re.IGNORECASE)
+
+                if "gpt-oss" in raw_id:
+                    base_id = "gpt-oss-120b-medium"
+                    base_name = "GPT-OSS 120B (Medium)"
+
+                if base_id not in seen_base_ids:
+                    seen_base_ids.add(base_id)
+                    models.append({"id": base_id, "name": base_name})
+
         if not models:
-            models = [
-                {"id": "gemini-4-argon-medium", "name": "Gemini 4 Argon (Medium)"},
-                {"id": "gemini-4-argon-high", "name": "Gemini 4 Argon (High)"},
-                {"id": "gemini-4-argon-low", "name": "Gemini 4 Argon (Low)"},
-                {"id": "gemini-3.8-flash-high", "name": "Gemini 3.8 Flash (High)"},
-                {"id": "gemini-3.8-flash-medium", "name": "Gemini 3.8 Flash (Medium)"},
-                {"id": "gemini-3.8-flash-low", "name": "Gemini 3.8 Flash (Low)"},
-                {"id": "claude-opus-5-5-high", "name": "Claude Opus 5.5 (High)"},
-                {"id": "claude-sonnet-5-5-high", "name": "Claude Sonnet 5.5 (High)"},
-                {"id": "gpt-oss-120b-medium", "name": "GPT-OSS 120B (Medium)"}
-            ]
+            models = canonical_base
+
         return models
 
     async def get_agents(self) -> List[Dict[str, str]]:

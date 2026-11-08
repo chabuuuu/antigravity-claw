@@ -70,3 +70,4 @@ The **Antigravity Config** view (`#view-settings`) exposes full control over Ant
 ### D. Rules & Raw JSON Editors
 - Edit project behavior guidelines directly in the browser: `GEMINI.md` and `AGENTS.md`.
 - Safe raw JSON editor for `~/.gemini/settings.json` and `~/.gemini/config/config.json`.
+
