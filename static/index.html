@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#161b22">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>OpenClaw - Antigravity Remote Studio</title>
   <link rel="stylesheet" href="/static/css/app.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦅</text></svg>">
@@ -49,6 +52,7 @@
           <h1>OpenClaw</h1>
           <span class="brand-badge">Antigravity</span>
         </div>
+        <button id="btn-close-sidebar" class="btn-sidebar-close" aria-label="Close Navigation Menu">✕</button>
       </div>
 
       <!-- Navigation Tabs -->
@@ -121,14 +125,26 @@
       </div>
     </aside>
 
+    <!-- Mobile Drawer Backdrop Overlay -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
     <!-- Main Content Area -->
     <main id="main-content">
       <!-- Top Navbar -->
       <header class="top-navbar">
-        <div class="nav-left-info">
-          <span class="workspace-pill" id="current-workspace-pill">Workspace: /...</span>
-          <span id="git-status-pill" class="workspace-pill" style="display:none; color: var(--accent-green);">Git: main</span>
-          <span id="header-quota-pill" class="workspace-pill" style="cursor: pointer; color: var(--accent-blue); display: none;" title="Click to view Antigravity Usage & Quotas">📊 Quota: --%</span>
+        <div class="navbar-left-group">
+          <button id="btn-toggle-sidebar" class="btn-sidebar-toggle" aria-label="Toggle Navigation Menu">
+            <span class="hamburger-icon">☰</span>
+          </button>
+          <div class="mobile-brand">
+            <span class="mobile-brand-icon">🦅</span>
+            <span class="mobile-brand-title">OpenClaw</span>
+          </div>
+          <div class="nav-left-info">
+            <span class="workspace-pill" id="current-workspace-pill">Workspace: /...</span>
+            <span id="git-status-pill" class="workspace-pill" style="display:none; color: var(--accent-green);">Git: main</span>
+            <span id="header-quota-pill" class="workspace-pill" style="cursor: pointer; color: var(--accent-blue); display: none;" title="Click to view Antigravity Usage & Quotas">📊 Quota: --%</span>
+          </div>
         </div>
         <div class="ws-status-badge">
           <span id="ws-dot" class="status-dot"></span>
@@ -265,6 +281,10 @@
 
       <!-- VIEW 2: FILES & WORKSPACE EDITOR -->
       <div id="view-workspace" class="view-panel">
+        <div class="mobile-workspace-switcher" id="mobile-workspace-switcher">
+          <button class="mobile-ws-tab active" id="btn-mobile-tab-tree">📁 File Tree</button>
+          <button class="mobile-ws-tab" id="btn-mobile-tab-editor">📝 Code Editor</button>
+        </div>
         <div class="workspace-container">
           <div class="file-tree-pane">
             <div class="tree-header">

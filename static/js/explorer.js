@@ -110,6 +110,10 @@ const Explorer = {
       saveBtn.style.display = "block";
       downloadBtn.style.display = "block";
 
+      if (typeof App !== "undefined" && App.showMobileEditor) {
+        App.showMobileEditor();
+      }
+
       this.loadDirectory(this.currentDirectory);
     } catch (e) {
       console.error("Failed to read file:", e);

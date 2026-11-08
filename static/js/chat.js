@@ -95,7 +95,10 @@ const Chat = {
         item.className = `conv-item ${conv.conversation_id === this.activeConversationId ? 'active' : ''}`;
         item.innerText = conv.title || "Untitled Session";
         item.title = conv.title;
-        item.addEventListener("click", () => this.loadConversation(conv.conversation_id));
+        item.addEventListener("click", () => {
+          this.loadConversation(conv.conversation_id);
+          if (typeof App !== "undefined" && App.closeMobileSidebar) App.closeMobileSidebar();
+        });
         listContainer.appendChild(item);
       });
     } catch (e) {
@@ -125,6 +128,7 @@ const Chat = {
   startNewSession() {
     this.activeConversationId = null;
     this.activeTaskId = null;
+    if (typeof App !== "undefined" && App.closeMobileSidebar) App.closeMobileSidebar();
     const container = document.getElementById("chat-messages");
     container.innerHTML = `
       <div class="message-bubble assistant-message">

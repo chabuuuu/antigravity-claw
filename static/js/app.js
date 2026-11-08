@@ -31,16 +31,87 @@ const App = {
   },
 
   bindNavigation() {
+    // Navigation tabs
     document.querySelectorAll(".nav-item").forEach(item => {
       item.addEventListener("click", () => {
         const targetView = item.getAttribute("data-view");
         this.switchView(targetView);
+        this.closeMobileSidebar();
       });
     });
+
+    // Mobile Sidebar Drawer Toggle
+    const toggleBtn = document.getElementById("btn-toggle-sidebar");
+    const closeBtn = document.getElementById("btn-close-sidebar");
+    const backdrop = document.getElementById("sidebar-backdrop");
+    const sidebar = document.getElementById("sidebar");
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", () => {
+        sidebar.classList.toggle("mobile-open");
+        backdrop.classList.toggle("active");
+      });
+    }
+
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => {
+        this.closeMobileSidebar();
+      });
+    }
+
+    if (backdrop) {
+      backdrop.addEventListener("click", () => {
+        this.closeMobileSidebar();
+      });
+    }
+
+    // Mobile Workspace Tab Switcher (File Tree vs Code Editor)
+    const btnTabTree = document.getElementById("btn-mobile-tab-tree");
+    const btnTabEditor = document.getElementById("btn-mobile-tab-editor");
+    if (btnTabTree && btnTabEditor) {
+      btnTabTree.addEventListener("click", () => {
+        this.showMobileTree();
+      });
+      btnTabEditor.addEventListener("click", () => {
+        this.showMobileEditor();
+      });
+    }
+  },
+
+  closeMobileSidebar() {
+    const sidebar = document.getElementById("sidebar");
+    const backdrop = document.getElementById("sidebar-backdrop");
+    if (sidebar) sidebar.classList.remove("mobile-open");
+    if (backdrop) backdrop.classList.remove("active");
+  },
+
+  showMobileTree() {
+    const btnTree = document.getElementById("btn-mobile-tab-tree");
+    const btnEditor = document.getElementById("btn-mobile-tab-editor");
+    const container = document.querySelector(".workspace-container");
+    if (btnTree) btnTree.classList.add("active");
+    if (btnEditor) btnEditor.classList.remove("active");
+    if (container) {
+      container.classList.remove("mobile-show-editor");
+      container.classList.add("mobile-show-tree");
+    }
+  },
+
+  showMobileEditor() {
+    const btnTree = document.getElementById("btn-mobile-tab-tree");
+    const btnEditor = document.getElementById("btn-mobile-tab-editor");
+    const container = document.querySelector(".workspace-container");
+    if (btnTree) btnTree.classList.remove("active");
+    if (btnEditor) btnEditor.classList.add("active");
+    if (container) {
+      container.classList.remove("mobile-show-tree");
+      container.classList.add("mobile-show-editor");
+    }
   },
 
   switchView(viewName) {
     this.currentView = viewName;
+    this.closeMobileSidebar();
     document.querySelectorAll(".nav-item").forEach(item => {
       item.classList.toggle("active", item.getAttribute("data-view") === viewName);
     });

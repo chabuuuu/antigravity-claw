@@ -6,11 +6,13 @@
 *An open-source, web-based control center transforming your Linux Ubuntu VPS into a 24/7 autonomous Antigravity agent studio with OpenClaw-grade UI, multi-layer security, and background automations.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docs: GitHub Pages](https://img.shields.io/badge/Docs-GitHub%20Pages-blue.svg)](https://chabuuuu.github.io/antigravity_open_claw/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Platform: Linux Ubuntu](https://img.shields.io/badge/platform-Ubuntu%20Linux-orange.svg)](https://ubuntu.com/)
+[![Docker GHCR](https://img.shields.io/badge/Docker-GHCR-2496ED.svg)](https://github.com/chabuuuu/antigravity_open_claw/pkgs/container/antigravity-claw)
+[![Mobile: Responsive](https://img.shields.io/badge/Mobile-Responsive-success.svg)](#-mobile-responsive-experience)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Overview](#-overview) • [Key Features](#-key-features) • [Architecture](#-architecture) • [Quickstart](#-quickstart) • [VPS Deployment](#-production-deployment-on-ubuntu-vps) • [Documentation](#-documentation) • [Contributing](#-contributing)
+[Documentation](https://chabuuuu.github.io/antigravity_open_claw/) • [Overview](#-overview) • [Mobile Experience](#-mobile-responsive-experience) • [Key Features](#-key-features) • [Architecture](#-architecture) • [Quickstart](#-quickstart) • [VPS Deployment](#-production-deployment-on-ubuntu-vps) • [Contributing](#-contributing)
 
 </div>
 
@@ -112,6 +114,13 @@ When installed on a self-hosted Ubuntu Linux VPS, it allows developers to:
 - **Brute-Force & Rate Limiting**: 5 consecutive failed attempts locks out the client IP address for 15 minutes.
 - **Path Traversal Defense**: All file queries are validated against the canonical workspace boundary using `Path.relative_to()`.
 - **Append-Only Audit Log**: Every login, task dispatch, file edit, terminal command, and configuration change is recorded in an SQLite database with timestamp (UTC), username, client IP, action, resource, status, and details. Logs can be exported to **CSV** or **JSON**.
+
+### 7. 📱 Mobile-First Responsive Experience
+- **Slide-Over Off-Canvas Navigation**: Touch hamburger drawer (`☰`) with smooth sliding animations and frosted backdrop dismiss.
+- **On-the-Go Autonomous Tasks**: Prompt AI from your smartphone with thumb-friendly controls, enlarged `🚀 Run` button, and auto-zoom prevention (16px base input).
+- **Segmented Mobile Workspace Switcher**: Easily toggle between `📁 File Tree` and `📝 Code Editor` tabs on narrow screens; opening a file automatically transitions to the code editor.
+- **Fluid Output Streaming**: Reasoning process accordions and tool execution cards scale to mobile viewports without horizontal page distortion.
+- **Mobile Header Badges**: Tap the compact quota pill directly on mobile to inspect remaining capacity.
 
 ---
 
@@ -257,14 +266,25 @@ journalctl -u antigravity-openclaw -f
 
 ---
 
-## 📚 Documentation
+## 📚 Documentation & GitHub Pages
 
-Detailed documentation is available in the [`docs/`](./docs) directory:
+Full documentation is hosted on GitHub Pages: **[https://chabuuuu.github.io/antigravity_open_claw/](https://chabuuuu.github.io/antigravity_open_claw/)**
 
+Detailed guides are also available in the [`docs/`](./docs) directory:
+
+- [Documentation Portal & Overview](./docs/README.md) - The complete documentation home.
+- [Getting Started Guide](./docs/GETTING_STARTED.md) - Rapid installation and first-run guide.
+- [Mobile Experience Guide](./docs/MOBILE_GUIDE.md) - How to prompt and control autonomous tasks from your smartphone.
+- [Usage & Model Quotas Guide](./docs/USAGE_QUOTAS.md) - Real-time tracking of Gemini, Claude, and Argon quotas.
+- [Autonomous Scheduling & Webhooks](./docs/AUTONOMOUS_WORKFLOWS.md) - 24/7 background cron jobs with Telegram and Discord alerts.
 - [System Architecture & Internals](./docs/ARCHITECTURE.md) - Deep dive into core subsystems, security design, and data flows.
+- [Security Architecture & Audit Logging](./docs/SECURITY_AUDIT.md) - Authentication, rate limiting, and tamper-evident audit trails.
+- [Docker & Container Deployment](./docs/DOCKER_DEPLOYMENT.md) - Container orchestration, volume mounts, and GHCR images.
 - [Ubuntu VPS Deployment Guide](./docs/DEPLOYMENT_VPS_UBUNTU.md) - Step-by-step instructions for Nginx, SSL, UFW, and systemd.
 - [Antigravity CLI Integration Guide](./docs/ANTIGRAVITY_INTEGRATION.md) - Protocol analysis of `stream-json`, flags, tools, and subagents.
+- [Studio Features & Developer Tools](./docs/FEATURES.md) - Workspace file explorer, in-browser editor, and VPS terminal.
 - [REST & WebSocket API Reference](./docs/API_REFERENCE.md) - Complete endpoints specification and WebSocket event schemas.
+- [Contributing Guidelines](./docs/CONTRIBUTING_GUIDE.md) - How to build, test, and contribute to OpenClaw.
 
 ---
 
