@@ -18,6 +18,7 @@ const App = {
     Chat.init();
     Explorer.init();
     Terminal.init();
+    Usage.init();
     Settings.init();
     Scheduler.init();
     Audit.init();
@@ -25,6 +26,8 @@ const App = {
     // Start polling system metrics
     this.pollSystemMetrics();
     setInterval(() => this.pollSystemMetrics(), 5000);
+    // Refresh Quota every 2 minutes
+    setInterval(() => Usage.loadUsage(), 120000);
   },
 
   bindNavigation() {
@@ -47,6 +50,7 @@ const App = {
 
     // Refresh view data when entered
     if (viewName === "workspace") Explorer.loadDirectory(Explorer.currentDirectory);
+    if (viewName === "usage") Usage.loadUsage();
     if (viewName === "settings") Settings.loadAll();
     if (viewName === "schedules") Scheduler.loadSchedules();
     if (viewName === "audit") Audit.loadLogs();

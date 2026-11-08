@@ -1008,6 +1008,156 @@ body {
   color: #ff7b72;
 }
 
+/* ================= USAGE & QUOTA STYLES ================= */
+.usage-groups-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.quota-group-card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 18px 20px;
+}
+
+.quota-group-title {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #7ee787;
+  letter-spacing: 0.5px;
+}
+
+.quota-group-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.quota-buckets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.quota-bucket-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quota-bucket-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.quota-bucket-name {
+  color: var(--text-bright);
+}
+
+.quota-bucket-pct {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.quota-progress-track {
+  width: 100%;
+  height: 20px;
+  background-color: #0b0e14;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.quota-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.quota-bucket-subtext {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.quota-countdown-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.quota-countdown-badge.status-ok {
+  background: rgba(46, 160, 67, 0.15);
+  color: #3fb950;
+}
+
+.quota-countdown-badge.status-refreshing {
+  background: rgba(56, 139, 253, 0.15);
+  color: #58a6ff;
+}
+
+.quota-desc-muted {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.token-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.token-metric-card {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.token-metric-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.token-metric-value {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.quota-pill-badge {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(56, 139, 253, 0.12);
+  border: 1px solid rgba(56, 139, 253, 0.3);
+}
+
+.quota-pill-badge:hover {
+  background: rgba(56, 139, 253, 0.25);
+}
+
 .alert-success {
   background-color: rgba(35, 134, 54, 0.15);
   border: 1px solid var(--accent-green);

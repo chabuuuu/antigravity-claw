@@ -73,6 +73,15 @@ When installed on a self-hosted Ubuntu Linux VPS, it allows developers to:
   - `agy update`: In-place CLI binary updater with live execution output.
   - `agy install`: Configure shell profiles and environment PATHs.
   - `agy changelog`: Full interactive, searchable release notes and version changelog viewer.
+- **Usage & Model Quotas Dashboard**:
+  - Real-time quota tracking via `agy -p "/usage"` and `/quota`.
+  - Live progress bars, percentages, and countdown timers for:
+    - **Gemini Models** (Weekly Limit & 5-Hour Limit).
+    - **Claude & GPT Models** (Weekly Limit & 5-Hour Limit).
+    - **Gemini 4 Argon** (Dedicated Pro/Ultra tier limits).
+  - Account email display (`id_token_email`) and quota consumption explanations.
+  - Interactive in-chat `/usage` or `/quota` slash commands that render graphical quota bars.
+  - Header quota badge and total task token analytics (prompt, completion, and thinking tokens).
 - **Project Rules & Guidelines**: Directly view and edit `GEMINI.md` and `AGENTS.md` in the browser.
 - **Raw Configuration Editor**: Safe editor for `~/.gemini/settings.json` and `~/.gemini/config/config.json`.
 

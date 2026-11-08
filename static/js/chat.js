@@ -191,6 +191,48 @@ const Chat = {
     const jsonSchema = document.getElementById("chat-json-schema") ? document.getElementById("chat-json-schema").value.trim() : "";
     const sessionSettings = document.getElementById("chat-session-settings") ? document.getElementById("chat-session-settings").value.trim() : "";
 
+    // Intercept /usage and /quota slash commands for instant interactive card
+    if (prompt === "/usage" || prompt === "/quota") {
+      this.appendUserMessage(prompt);
+      this.setExecutionState(true);
+      this.prepareAssistantBubble();
+      try {
+        const res = await fetch("/api/antigravity/usage", { headers: Auth.getAuthHeaders() });
+        const data = await res.json();
+        let quotaContent = `<h4 style="margin:0 0 6px; color:var(--accent-blue);">📊 Antigravity Models & Quota Usage</h4>`;
+        quotaContent += `<p style="font-size:12px; color:#a5d6ff; margin:0 0 12px; font-family:var(--font-mono);">Account: <strong>${data.account_email || 'Google User'}</strong></p>`;
+        (data.groups || []).forEach(g => {
+          quotaContent += `<div style="margin-top:12px; font-weight:700; color:#7ee787; font-size:12px; letter-spacing:0.5px;">${g.name.toUpperCase()}</div>`;
+          (g.buckets || []).forEach(b => {
+            const pct = b.remaining_percent != null ? b.remaining_percent : 100;
+            const barColor = pct <= 20 ? "var(--accent-red)" : (pct <= 50 ? "#d29922" : "#58a6ff");
+            quotaContent += `
+              <div style="margin: 8px 0 6px;">
+                <div style="display:flex; justify-content:space-between; font-size:12px;">
+                  <span style="color:var(--text-bright); font-weight:600;">${b.name}</span>
+                  <span style="font-family:var(--font-mono); font-weight:700; color:${barColor};">${pct.toFixed(2)}%</span>
+                </div>
+                <div style="height:14px; background:#0b0e14; border-radius:4px; overflow:hidden; margin:4px 0; border:1px solid var(--border-color);">
+                  <div style="width:${Math.max(pct,0)}%; height:100%; background:${barColor};"></div>
+                </div>
+                <div style="font-size:11px; color:var(--text-muted);">${b.countdown || 'Quota available'}</div>
+              </div>
+            `;
+          });
+        });
+        this.currentAssistantContent.innerHTML = quotaContent;
+        if (typeof Usage !== "undefined" && typeof Usage.render === "function") {
+          Usage.data = data;
+          Usage.updateHeaderBadge();
+        }
+      } catch (e) {
+        this.appendErrorMessage("Failed to fetch quota: " + e.message);
+      } finally {
+        this.setExecutionState(false);
+      }
+      return;
+    }
+
     // Display user message
     this.appendUserMessage(prompt);
     this.setExecutionState(true);

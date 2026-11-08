@@ -149,6 +149,9 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
         res9 = self.fetch('/api/settings/plugins/validate', method='POST', body='{}')
         self.assertEqual(res9.code, 401)
 
+        res10 = self.fetch('/api/antigravity/usage')
+        self.assertEqual(res10.code, 401)
+
 if __name__ == "__main__":
     unittest.main()
 

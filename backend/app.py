@@ -278,6 +278,20 @@ class AntigravityAuthSubmitHandler(BaseHandler):
         success = await runner_instance.submit_auth_code(task_id, code)
         self.write({"success": success})
 
+class AntigravityUsageHandler(BaseHandler):
+    @require_auth
+    async def get(self):
+        data = await settings_manager_instance.get_usage_and_quota()
+        log_audit(
+            action=AuditAction.USAGE_VIEW,
+            status="SUCCESS",
+            resource="antigravity_usage_quota",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip()
+        )
+        self.write(data)
+
 class AgentTasksHandler(BaseHandler):
     @require_auth
     def get(self):
@@ -1002,6 +1016,7 @@ def make_app():
         (r"/api/antigravity/auth/status", AntigravityAuthStatusHandler),
         (r"/api/antigravity/auth/start", AntigravityAuthStartHandler),
         (r"/api/antigravity/auth/submit", AntigravityAuthSubmitHandler),
+        (r"/api/antigravity/usage", AntigravityUsageHandler),
         
         # Antigravity Settings Routes
         (r"/api/settings/models", SettingsModelsHandler),

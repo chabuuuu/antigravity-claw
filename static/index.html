@@ -65,6 +65,10 @@
           <span class="icon">💻</span>
           <span>VPS Terminal</span>
         </div>
+        <div class="nav-item" data-view="usage">
+          <span class="icon">📊</span>
+          <span>Usage & Quotas</span>
+        </div>
         <div class="nav-item" data-view="settings">
           <span class="icon">⚙️</span>
           <span>Antigravity Config</span>
@@ -124,6 +128,7 @@
         <div class="nav-left-info">
           <span class="workspace-pill" id="current-workspace-pill">Workspace: /...</span>
           <span id="git-status-pill" class="workspace-pill" style="display:none; color: var(--accent-green);">Git: main</span>
+          <span id="header-quota-pill" class="workspace-pill" style="cursor: pointer; color: var(--accent-blue); display: none;" title="Click to view Antigravity Usage & Quotas">📊 Quota: --%</span>
         </div>
         <div class="ws-status-badge">
           <span id="ws-dot" class="status-dot"></span>
@@ -306,6 +311,62 @@
             <span class="terminal-prompt-prefix">user@vps:~$</span>
             <input type="text" id="terminal-cmd-input" placeholder="Type a bash command (e.g. ls -la, git pull, docker ps, htop)..." autocomplete="off">
             <button id="btn-terminal-run" class="btn-primary">Execute</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: USAGE & QUOTAS -->
+      <div id="view-usage" class="view-panel">
+        <div class="settings-container">
+          <!-- Top Header Card -->
+          <div class="settings-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <h3 class="card-title" style="margin: 0; font-size: 18px;">Models & Quota Usage</h3>
+                  <span class="badge" style="background: rgba(56, 139, 253, 0.15); color: var(--accent-blue); padding: 3px 8px; border-radius: 4px; font-size: 11px;">Real-time</span>
+                </div>
+                <div style="margin-top: 6px; font-family: var(--font-mono); font-size: 13px; color: #a5d6ff;">
+                  <strong>Account:</strong> <span id="usage-account-email">Loading...</span>
+                </div>
+              </div>
+              <button id="btn-refresh-usage" class="btn-primary" style="padding: 6px 14px; font-size: 12px;">
+                🔄 Refresh Quotas
+              </button>
+            </div>
+            <p id="usage-policy-desc" class="card-desc" style="line-height: 1.5; color: var(--text-muted); font-size: 12px; margin: 0;">
+              Within each group, models share a weekly limit and a 5-hour limit. Quota is consumed proportionally to the cost of tokens. Limits last longer with shorter tasks or using cost-effective models.
+            </p>
+          </div>
+
+          <!-- Quota Groups Container (Gemini, Claude, Argon) -->
+          <div id="usage-groups-container" class="usage-groups-grid">
+            <div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px;">
+              Loading Antigravity model quotas...
+            </div>
+          </div>
+
+          <!-- Token Analytics Summary Card -->
+          <div class="settings-card" style="margin-top: 16px;">
+            <h3 class="card-title" style="margin-bottom: 12px;">Task Token Consumption (All Sessions)</h3>
+            <div class="token-metrics-grid">
+              <div class="token-metric-card">
+                <span class="token-metric-label">Total Tasks Executed</span>
+                <span id="usage-total-tasks" class="token-metric-value">0</span>
+              </div>
+              <div class="token-metric-card">
+                <span class="token-metric-label">Total Tokens Processed</span>
+                <span id="usage-total-tokens" class="token-metric-value">0</span>
+              </div>
+              <div class="token-metric-card">
+                <span class="token-metric-label">Prompt / Context Tokens</span>
+                <span id="usage-prompt-tokens" class="token-metric-value">0</span>
+              </div>
+              <div class="token-metric-card">
+                <span class="token-metric-label">Output & Thinking Tokens</span>
+                <span id="usage-output-tokens" class="token-metric-value">0</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -835,6 +896,7 @@
   <script src="/static/js/chat.js"></script>
   <script src="/static/js/explorer.js"></script>
   <script src="/static/js/terminal.js"></script>
+  <script src="/static/js/usage.js"></script>
   <script src="/static/js/settings.js"></script>
   <script src="/static/js/scheduler.js"></script>
   <script src="/static/js/audit.js"></script>

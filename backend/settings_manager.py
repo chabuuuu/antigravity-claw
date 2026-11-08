@@ -16,9 +16,11 @@ import os
 import re
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
+from datetime import datetime, timezone
 
 from backend.config import AGY_BIN_PATH, DEFAULT_WORKSPACE
 from backend.audit import log_audit, AuditAction
+from backend.database import get_db_connection
 
 logger = logging.getLogger("openclaw.settings_manager")
 
@@ -35,10 +37,11 @@ class SettingsManager:
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
+                stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            stdout, stderr = await proc.communicate()
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=20.0)
             return proc.returncode, stdout.decode("utf-8", errors="replace"), stderr.decode("utf-8", errors="replace")
         except Exception as e:
             logger.error("Failed to execute agy subcommand %s: %s", args, e)
@@ -360,6 +363,135 @@ class SettingsManager:
             return True, f"Saved {filename} successfully."
         except Exception as e:
             return False, str(e)
+
+    async def get_usage_and_quota(self) -> Dict[str, Any]:
+        """
+        Retrieves real-time model quota and usage breakdown from Antigravity CLI (/usage).
+        Also extracts account email and aggregates task token consumption analytics.
+        """
+        # 1. Fetch account email from token or google_accounts.json
+        account_email = "Not signed in"
+        token_path = self.gemini_dir / "antigravity-cli" / "antigravity-oauth-token"
+        if token_path.exists():
+            try:
+                tok_data = json.loads(token_path.read_text(encoding="utf-8"))
+                if tok_data.get("id_token_email"):
+                    account_email = tok_data["id_token_email"]
+            except Exception:
+                pass
+
+        if account_email == "Not signed in":
+            accounts_file = self.gemini_dir / "google_accounts.json"
+            if accounts_file.exists():
+                try:
+                    acc_data = json.loads(accounts_file.read_text(encoding="utf-8"))
+                    if acc_data.get("active"):
+                        account_email = acc_data["active"]
+                    elif acc_data.get("old") and len(acc_data["old"]) > 0:
+                        account_email = acc_data["old"][0]
+                except Exception:
+                    pass
+
+        # 2. Run agy -p "/usage" --output-format json
+        code, out, err = await self._run_agy_subcommand(["-p", "/usage", "--output-format", "json"])
+        groups = []
+        policy_desc = ""
+        raw_text = ""
+
+        if code == 0 and out.strip():
+            try:
+                resp_json = json.loads(out)
+                raw_text = resp_json.get("response", "")
+                cmd_data = resp_json.get("command", {}).get("data", {})
+                policy_desc = cmd_data.get("description", "")
+                raw_groups = cmd_data.get("groups", [])
+                
+                now = datetime.now(timezone.utc)
+                for g in raw_groups:
+                    group_item = {
+                        "name": g.get("name", "Unknown Group"),
+                        "description": g.get("description", ""),
+                        "buckets": []
+                    }
+                    for b in g.get("buckets", []):
+                        frac = float(b.get("remaining_fraction", 1.0))
+                        percent = round(frac * 100, 2)
+                        reset_iso = b.get("reset_time", "")
+                        
+                        # Calculate human-readable countdown
+                        countdown_str = "Quota available"
+                        if frac < 1.0 and reset_iso:
+                            try:
+                                reset_dt = datetime.fromisoformat(reset_iso.replace("Z", "+00:00"))
+                                diff = reset_dt - now
+                                if diff.total_seconds() > 0:
+                                    total_hours = int(diff.total_seconds() // 3600)
+                                    mins = int((diff.total_seconds() % 3600) // 60)
+                                    countdown_str = f"Refreshes in {total_hours}h {mins}m"
+                                else:
+                                    countdown_str = "Refreshed"
+                            except Exception:
+                                countdown_str = f"Resets at {reset_iso}"
+                                
+                        group_item["buckets"].append({
+                            "id": b.get("id"),
+                            "name": b.get("name"),
+                            "description": b.get("description") or (countdown_str if frac < 1.0 else "Quota available"),
+                            "window": b.get("window"),
+                            "remaining_fraction": frac,
+                            "remaining_percent": percent,
+                            "reset_time": reset_iso,
+                            "countdown": countdown_str
+                        })
+                    groups.append(group_item)
+            except Exception as e:
+                logger.error("Failed to parse /usage output: %s", e)
+
+        # 3. Aggregate token analytics from SQLite
+        token_analytics = {
+            "total_tasks": 0,
+            "total_tokens": 0,
+            "prompt_tokens": 0,
+            "output_tokens": 0,
+            "thinking_tokens": 0,
+            "recent_tasks": []
+        }
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                SELECT task_id, title, status, prompt, completed_at
+                FROM tasks ORDER BY id DESC LIMIT 20;
+                """)
+                rows = cursor.fetchall()
+                token_analytics["total_tasks"] = len(rows)
+
+                cursor.execute("""
+                SELECT metadata_json FROM conversation_messages WHERE role = 'assistant' AND metadata_json IS NOT NULL;
+                """)
+                msg_rows = cursor.fetchall()
+                for (meta_str,) in msg_rows:
+                    if meta_str:
+                        try:
+                            meta = json.loads(meta_str)
+                            usage = meta.get("usage", {})
+                            token_analytics["prompt_tokens"] += usage.get("input_tokens", 0)
+                            token_analytics["output_tokens"] += usage.get("output_tokens", 0)
+                            token_analytics["thinking_tokens"] += usage.get("thinking_tokens", 0)
+                            token_analytics["total_tokens"] += usage.get("total_tokens", 0)
+                        except Exception:
+                            pass
+        except Exception as e:
+            logger.error("Error aggregating token metrics: %s", e)
+
+        return {
+            "success": True,
+            "account_email": account_email,
+            "policy_description": policy_desc,
+            "raw_response": raw_text,
+            "groups": groups,
+            "token_analytics": token_analytics
+        }
 
 settings_manager_instance = SettingsManager()
 
