@@ -1147,6 +1147,11 @@
                 
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                   <label class="checkbox-label" style="font-size: 13px;">
+                    <input type="checkbox" id="webhook-notify-approvals" checked>
+                    <span><strong>Notify on Permission Approvals & Sign-in Requests</strong> (Immediately dispatch alert when agent needs your confirmation, tool permission, or Google auth)</span>
+                  </label>
+
+                  <label class="checkbox-label" style="font-size: 13px;">
                     <input type="checkbox" id="webhook-notify-swarms" checked>
                     <span><strong>Notify on Multi-Agent Swarms & Planning</strong> (Automatically dispatch alert when <code>/teamwork</code>, <code>/boost</code>, <code>/goal</code>, or <code>/plan</code> missions finish)</span>
                   </label>

@@ -1087,6 +1087,7 @@ class SettingsWebhooksHandler(BaseHandler):
             "generic_url": notifier_instance.generic_url or "",
             "notify_swarms": notifier_instance.notify_swarms,
             "notify_all_tasks": notifier_instance.notify_all_tasks,
+            "notify_approvals": notifier_instance.notify_approvals,
             "min_duration_seconds": notifier_instance.min_duration_seconds
         })
 

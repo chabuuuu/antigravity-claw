@@ -29,6 +29,7 @@ class WebhookNotifier:
         self.generic_url = GENERIC_WEBHOOK_URL
         self.notify_swarms: bool = True
         self.notify_all_tasks: bool = False
+        self.notify_approvals: bool = True
         self.min_duration_seconds: int = 10
 
         self._load_saved_config()
@@ -52,6 +53,8 @@ class WebhookNotifier:
                     self.notify_swarms = bool(saved["notify_swarms"])
                 if "notify_all_tasks" in saved:
                     self.notify_all_tasks = bool(saved["notify_all_tasks"])
+                if "notify_approvals" in saved:
+                    self.notify_approvals = bool(saved["notify_approvals"])
                 if "min_duration_seconds" in saved:
                     self.min_duration_seconds = int(saved["min_duration_seconds"])
             except Exception as e:
@@ -68,6 +71,7 @@ class WebhookNotifier:
                 "generic_url": self.generic_url,
                 "notify_swarms": self.notify_swarms,
                 "notify_all_tasks": self.notify_all_tasks,
+                "notify_approvals": self.notify_approvals,
                 "min_duration_seconds": self.min_duration_seconds
             }
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -90,6 +94,8 @@ class WebhookNotifier:
             self.notify_swarms = bool(config["notify_swarms"])
         if "notify_all_tasks" in config:
             self.notify_all_tasks = bool(config["notify_all_tasks"])
+        if "notify_approvals" in config:
+            self.notify_approvals = bool(config["notify_approvals"])
         if "min_duration_seconds" in config:
             try:
                 self.min_duration_seconds = max(0, int(config["min_duration_seconds"]))
@@ -147,7 +153,14 @@ class WebhookNotifier:
     def _send_telegram(self, title: str, message: str, event_type: str):
         try:
             url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
-            icon = "✅" if event_type == "SUCCESS" else ("❌" if event_type in ("ERROR", "FAILED") else "ℹ️")
+            if event_type in ("APPROVAL_REQUIRED", "ACTION_REQUIRED", "WARNING"):
+                icon = "⚠️"
+            elif event_type == "SUCCESS":
+                icon = "✅"
+            elif event_type in ("ERROR", "FAILED"):
+                icon = "❌"
+            else:
+                icon = "ℹ️"
             text = f"{icon} *{title}*\n\n{message}"
             payload = {
                 "chat_id": self.telegram_chat_id,
@@ -160,7 +173,14 @@ class WebhookNotifier:
 
     def _send_discord(self, title: str, message: str, event_type: str, metadata: Optional[Dict[str, Any]]):
         try:
-            color = 0x2ecc71 if event_type == "SUCCESS" else (0xe74c3c if event_type in ("ERROR", "FAILED") else 0x3498db)
+            if event_type in ("APPROVAL_REQUIRED", "ACTION_REQUIRED", "WARNING"):
+                color = 0xf39c12  # Warning Amber
+            elif event_type == "SUCCESS":
+                color = 0x2ecc71  # Green
+            elif event_type in ("ERROR", "FAILED"):
+                color = 0xe74c3c  # Red
+            else:
+                color = 0x3498db  # Blue
             embed = {
                 "title": title,
                 "description": message[:2000],
@@ -179,7 +199,14 @@ class WebhookNotifier:
 
     def _send_slack(self, title: str, message: str, event_type: str):
         try:
-            icon = ":white_check_mark:" if event_type == "SUCCESS" else (":x:" if event_type in ("ERROR", "FAILED") else ":information_source:")
+            if event_type in ("APPROVAL_REQUIRED", "ACTION_REQUIRED", "WARNING"):
+                icon = ":warning:"
+            elif event_type == "SUCCESS":
+                icon = ":white_check_mark:"
+            elif event_type in ("ERROR", "FAILED"):
+                icon = ":x:"
+            else:
+                icon = ":information_source:"
             payload = {
                 "text": f"{icon} *{title}*\n{message}"
             }

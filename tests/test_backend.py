@@ -302,6 +302,7 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
             "generic_url": "https://example.com/webhook",
             "notify_swarms": True,
             "notify_all_tasks": False,
+            "notify_approvals": True,
             "min_duration_seconds": 15
         })
         res_post = self.fetch('/api/settings/webhooks', method='POST', headers=headers, body=payload)
@@ -313,6 +314,7 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
         data = json.loads(res_get.body.decode('utf-8'))
         self.assertEqual(data["generic_url"], "https://example.com/webhook")
         self.assertTrue(data["notify_swarms"])
+        self.assertTrue(data["notify_approvals"])
         self.assertEqual(data["min_duration_seconds"], 15)
 
         # 3. Test should_notify_task rules

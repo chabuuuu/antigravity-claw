@@ -44,6 +44,8 @@ class ActiveTask:
         self.steps: List[Dict[str, Any]] = []
         self.auth_required = False
         self.auth_url: Optional[str] = None
+        self.approval_required: bool = False
+        self._approval_notified: bool = False
         self.stderr_buffer = ""
         self.pty_master_fd: Optional[int] = None
         self.webhook_notify: bool = False
@@ -253,6 +255,69 @@ class AntigravityRunner:
                 "message": "Antigravity CLI requires Google Authorization. Please visit the link to sign in, then paste your authorization code."
             })
 
+            # Send Webhook Alert for Required Google Authorization
+            if notifier_instance.notify_approvals and not task._approval_notified:
+                task._approval_notified = True
+                notifier_instance.notify(
+                    title="🔐 Antigravity Google Auth Required",
+                    message=(
+                        f"Action required for Task {task.task_id[:8]}!\n\n"
+                        f"The Antigravity agent paused because Google OAuth sign-in is required.\n\n"
+                        f"👉 Sign-in Link:\n{auth_url}\n\n"
+                        f"Prompt: {task.prompt[:120]}...\n\n"
+                        f"Please open OpenClaw on your browser to complete login."
+                    ),
+                    event_type="APPROVAL_REQUIRED",
+                    metadata={
+                        "task_id": task.task_id,
+                        "conversation_id": task.conversation_id,
+                        "auth_url": auth_url,
+                        "status": "WAITING_FOR_AUTH"
+                    }
+                )
+
+    def _check_for_approval_prompt(self, task: ActiveTask, line: str):
+        """Scans process output for interactive user permission or confirmation requests."""
+        if task._approval_notified or not notifier_instance.notify_approvals:
+            return
+
+        lower_line = line.lower()
+        patterns = [
+            r'do you want to execute',
+            r'permission requested',
+            r'permission required',
+            r'approval required',
+            r'waiting for user approval',
+            r'confirm action',
+            r'allow this action',
+            r'grant permission',
+            r'\[y\/n\]',
+            r'approve \?'
+        ]
+        if any(re.search(p, lower_line) for p in patterns):
+            task.approval_required = True
+            task._approval_notified = True
+            logger.info("Detected approval request for task %s: %s", task.task_id, line)
+
+            clean_prompt = (task.prompt or "")[:120]
+            notifier_instance.notify(
+                title="⚠️ Antigravity Approval Required",
+                message=(
+                    f"Agent task requires your permission to proceed!\n\n"
+                    f"Action / Request:\n{line[:250]}\n\n"
+                    f"Task ID: {task.task_id}\n"
+                    f"Prompt: {clean_prompt}...\n\n"
+                    f"👉 Please open OpenClaw on your browser to review and approve the action."
+                ),
+                event_type="APPROVAL_REQUIRED",
+                metadata={
+                    "task_id": task.task_id,
+                    "conversation_id": task.conversation_id,
+                    "action_request": line[:100],
+                    "status": "WAITING_FOR_APPROVAL"
+                }
+            )
+
     async def _execute_process(self, task: ActiveTask, cmd: List[str], cwd: str, ip_address: Optional[str]):
         logger.info("Executing agy command: %s (cwd=%s)", " ".join(cmd), cwd)
         env = os.environ.copy()
@@ -280,6 +345,7 @@ class AntigravityRunner:
                     if not line:
                         continue
                     self._check_for_auth_prompt(task, line)
+                    self._check_for_approval_prompt(task, line)
                     try:
                         event_data = json.loads(line)
                         self._handle_stream_event(task, event_data)
@@ -296,6 +362,7 @@ class AntigravityRunner:
                     if not line:
                         continue
                     self._check_for_auth_prompt(task, line)
+                    self._check_for_approval_prompt(task, line)
                     task.stderr_buffer += line + "\n"
 
             # Stream both stdout and stderr concurrently without deadlock
@@ -475,6 +542,29 @@ class AntigravityRunner:
             state = step.get("state")
             
             task.steps.append(step)
+
+            # Check if this step requires user confirmation or approval
+            if (state in ("WAITING_FOR_USER", "APPROVAL_REQUIRED", "PENDING_APPROVAL") or step.get("requires_approval")) and not task._approval_notified:
+                if notifier_instance.notify_approvals:
+                    task.approval_required = True
+                    task._approval_notified = True
+                    tool_name = step.get("tool_name", "Action / Tool")
+                    notifier_instance.notify(
+                        title=f"⚠️ Approval Required: {tool_name}",
+                        message=(
+                            f"Agent is waiting for your confirmation to execute: {tool_name}\n\n"
+                            f"Task ID: {task.task_id}\n"
+                            f"Prompt: {(task.prompt or '')[:120]}...\n\n"
+                            f"👉 Please open OpenClaw on your browser to review and approve."
+                        ),
+                        event_type="APPROVAL_REQUIRED",
+                        metadata={
+                            "task_id": task.task_id,
+                            "conversation_id": task.conversation_id,
+                            "tool_name": tool_name,
+                            "status": "WAITING_FOR_USER"
+                        }
+                    )
 
             if step_type == "agent_response":
                 text_delta = step.get("text_delta", "")
