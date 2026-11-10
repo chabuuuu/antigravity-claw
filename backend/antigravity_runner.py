@@ -463,6 +463,17 @@ class AntigravityRunner:
                     "tool_info": step.get("tool_info"),
                     "duration_seconds": step.get("duration_seconds")
                 })
+            elif step_type == "subagent":
+                self._broadcast(task, {
+                    "type": "subagent_event",
+                    "task_id": task.task_id,
+                    "conversation_id": task.conversation_id,
+                    "step_index": step.get("step_index"),
+                    "state": state,
+                    "tool_name": step.get("tool_name"),
+                    "subagent_info": step.get("subagent_info"),
+                    "duration_seconds": step.get("duration_seconds")
+                })
             else:
                 self._broadcast(task, {
                     "type": "step_raw",

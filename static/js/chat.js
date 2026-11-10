@@ -9,6 +9,7 @@ const Chat = {
   currentThoughtBox: null,
   currentThoughtContent: null,
   activeToolCards: {},
+  swarmChatPollTimer: null,
   commands: [],
   filteredCommands: [],
   selectedCommandIndex: 0,
@@ -380,6 +381,7 @@ const Chat = {
   },
 
   startNewSession() {
+    this.stopSwarmPolling();
     this.activeConversationId = null;
     this.activeTaskId = null;
     if (typeof App !== "undefined" && App.closeMobileSidebar) App.closeMobileSidebar();
@@ -398,6 +400,7 @@ const Chat = {
 
   async loadConversation(convId) {
     try {
+      this.stopSwarmPolling();
       const res = await fetch(`/api/agent/conversations/${convId}`, {
         headers: Auth.getAuthHeaders()
       });
@@ -415,6 +418,35 @@ const Chat = {
           this.appendAssistantBubble(msg.content);
         }
       });
+
+      // If there is an active running task for this conversation, restore live monitoring state
+      if (data.active_task && data.active_task.status === "RUNNING") {
+        this.activeTaskId = data.active_task.task_id;
+        this.setExecutionState(true);
+        this.prepareAssistantBubble();
+
+        const promptText = data.active_task.prompt || "";
+        const isSwarm = promptText.includes("/teamwork") || promptText.includes("/boost") || promptText.includes("/goal") || promptText.includes("/plan");
+
+        if (isSwarm) {
+          this.renderTeamworkActiveCard(data.active_task);
+          this.startSwarmPolling(data.active_task.created_at);
+        } else if (data.active_task.full_response) {
+          this.currentAssistantContent.innerHTML = this.renderMarkdown(data.active_task.full_response);
+        }
+
+        // Re-subscribe on WebSocket
+        if (window.AppWS && window.AppWS.readyState === WebSocket.OPEN) {
+          window.AppWS.send(JSON.stringify({
+            action: "subscribe_task",
+            task_id: this.activeTaskId
+          }));
+        }
+      } else {
+        this.activeTaskId = null;
+        this.setExecutionState(false);
+      }
+
       this.loadConversations();
       this.scrollToBottom();
     } catch (e) {
@@ -658,6 +690,17 @@ const Chat = {
       this.activeTaskId = data.task_id;
       this.activeConversationId = data.conversation_id;
 
+      // Detect swarm commands to activate live Swarm Activity Card in chat
+      const isSwarm = prompt.includes("/teamwork") || prompt.includes("/boost") || prompt.includes("/goal") || prompt.includes("/plan");
+      if (isSwarm) {
+        this.renderTeamworkActiveCard({
+          task_id: data.task_id,
+          prompt: prompt,
+          created_at: new Date().toISOString()
+        });
+        this.startSwarmPolling(new Date().toISOString());
+      }
+
       // Subscribe on WebSocket
       if (window.AppWS && window.AppWS.readyState === WebSocket.OPEN) {
         window.AppWS.send(JSON.stringify({
@@ -672,15 +715,18 @@ const Chat = {
     }
   },
 
-  async cancelTask() {
-    if (!this.activeTaskId) return;
+  async cancelTask(taskIdOverride) {
+    const targetTaskId = taskIdOverride || this.activeTaskId;
+    if (!targetTaskId) return;
     try {
+      this.stopSwarmPolling();
       await fetch("/api/agent/cancel", {
         method: "POST",
         headers: Auth.getAuthHeaders(),
-        body: JSON.stringify({ task_id: this.activeTaskId })
+        body: JSON.stringify({ task_id: targetTaskId })
       });
       this.appendSystemNotice("⚠️ Task cancellation requested by user.");
+      this.setExecutionState(false);
     } catch (e) {
       console.error("Failed to cancel task:", e);
     }
@@ -780,11 +826,14 @@ const Chat = {
       this.scrollToBottom();
     } else if (event.type === "tool_call") {
       this.renderToolCard(event);
+    } else if (event.type === "subagent_event") {
+      this.renderSubagentCard(event);
     } else if (event.type === "antigravity_auth_required") {
       this.showAntigravityAuthModal(event);
     } else if (event.type === "agent_result") {
       this.renderTokenUsage(event.usage, event.duration_seconds);
     } else if (event.type === "task_completed") {
+      this.stopSwarmPolling();
       this.setExecutionState(false);
       const modal = document.getElementById("agy-auth-modal");
       if (modal && modal.style.display === "flex") {
@@ -792,6 +841,7 @@ const Chat = {
       }
       this.loadConversations();
     } else if (event.type === "error") {
+      this.stopSwarmPolling();
       this.appendErrorMessage(event.message);
       this.setExecutionState(false);
     }
@@ -947,6 +997,163 @@ const Chat = {
       toolBody.innerText = displayContent || "Executed.";
     }
     this.scrollToBottom();
+  },
+
+  renderSubagentCard(event) {
+    if (!this.currentAssistantBubble) return;
+    const body = this.currentAssistantBubble.querySelector(".message-body");
+    const stepIdx = event.step_index;
+
+    let card = this.activeToolCards["subagent_" + stepIdx];
+    if (!card) {
+      card = document.createElement("div");
+      card.className = "tool-card";
+      card.style.borderColor = "rgba(56, 139, 253, 0.5)";
+      card.innerHTML = `
+        <div class="tool-header">
+          <span>🤖 <strong>Subagent: ${this.escapeHtml(event.tool_name || 'Subagent')}</strong></span>
+          <span class="tool-badge badge-active">RUNNING</span>
+        </div>
+        <div class="tool-body">Subagent task dispatched...</div>
+      `;
+      body.insertBefore(card, this.currentAssistantContent);
+      this.activeToolCards["subagent_" + stepIdx] = card;
+    }
+
+    const badge = card.querySelector(".tool-badge");
+    const toolBody = card.querySelector(".tool-body");
+
+    if (event.state === "DONE") {
+      badge.className = "tool-badge badge-done";
+      badge.innerText = `COMPLETED ${event.duration_seconds ? '(' + event.duration_seconds.toFixed(2) + 's)' : ''}`;
+    }
+
+    if (event.subagent_info) {
+      let displayContent = "";
+      if (event.subagent_info.prompt) {
+        displayContent += "Role Task: " + event.subagent_info.prompt + "\n";
+      }
+      if (event.subagent_info.result) {
+        displayContent += "\nOutcome:\n" + event.subagent_info.result;
+      }
+      toolBody.innerText = displayContent || "Subagent executing workstream...";
+    }
+    this.scrollToBottom();
+  },
+
+  renderTeamworkActiveCard(task) {
+    if (!this.currentAssistantContent) this.prepareAssistantBubble();
+    const promptText = task.prompt || "";
+    const isBoost = promptText.includes("/boost");
+    const titleText = isBoost ? "🚀 Boost Multi-Agent Swarm In Progress" : "👥 Teamwork Multi-Agent Swarm In Progress";
+
+    this.currentAssistantContent.innerHTML = `
+      <div class="teamwork-active-card" id="chat-teamwork-card">
+        <div class="teamwork-active-header">
+          <div class="teamwork-pulse-indicator">
+            <span class="pulse-dot"></span>
+            <strong>${titleText}</strong>
+          </div>
+          <span class="swarm-timer" id="chat-swarm-timer">⏱️ 00:00</span>
+        </div>
+        <p class="teamwork-active-subtitle">Autonomous team coordinating explorers, spec creators, and builders for:<br><em style="color:var(--text-bright);">${this.escapeHtml(promptText)}</em></p>
+        
+        <div class="swarm-subagents-grid" id="chat-swarm-subagents">
+          <div class="swarm-agent-pill active">👑 Coordinator Agent: Orchestrating</div>
+          <div class="swarm-agent-pill running">🔍 Explorer Swarm: Initializing</div>
+        </div>
+
+        <div class="swarm-checklist-box">
+          <div class="swarm-checklist-title">
+            <span>Milestones & Progress</span>
+            <span id="chat-swarm-iteration" style="font-family:var(--font-mono); color:var(--accent-blue);">Active</span>
+          </div>
+          <div class="swarm-checklist-items" id="chat-swarm-checklist">
+            <div class="swarm-check-item pending"><span>⏳</span> <span>Decomposing mission into phased workstreams...</span></div>
+          </div>
+        </div>
+
+        <div class="teamwork-active-footer">
+          <button type="button" class="btn-secondary btn-sm" onclick="App.switchView('teamwork')">👥 Swarm Studio Details</button>
+          <button type="button" class="btn-cancel btn-sm" onclick="Chat.cancelTask()">🛑 Stop Swarm</button>
+        </div>
+      </div>
+    `;
+    this.scrollToBottom();
+  },
+
+  startSwarmPolling(startedAt) {
+    this.stopSwarmPolling();
+    const startMs = startedAt ? new Date(startedAt).getTime() : Date.now();
+
+    const updateTimer = () => {
+      const timerEl = document.getElementById("chat-swarm-timer");
+      if (!timerEl) return;
+      const elapsedSec = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+      const mm = String(Math.floor(elapsedSec / 60)).padStart(2, "0");
+      const ss = String(elapsedSec % 60).padStart(2, "0");
+      timerEl.innerText = `⏱️ ${mm}:${ss}`;
+    };
+    updateTimer();
+
+    const pollStatus = async () => {
+      updateTimer();
+      try {
+        const res = await Auth.fetchWithAuth("/api/teamwork/status");
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Update iteration
+        const iterEl = document.getElementById("chat-swarm-iteration");
+        if (iterEl && data.iteration) {
+          iterEl.innerText = data.iteration;
+        }
+
+        // Update subagents grid
+        const subagentsEl = document.getElementById("chat-swarm-subagents");
+        if (subagentsEl && data.subagents && data.subagents.length > 0) {
+          subagentsEl.innerHTML = `<div class="swarm-agent-pill active">👑 Coordinator Agent: Orchestrating</div>`;
+          data.subagents.forEach(s => {
+            const isDone = s.status === "COMPLETED";
+            const pillClass = isDone ? "completed" : "running";
+            const icon = isDone ? "✅" : "⚡";
+            const pill = document.createElement("div");
+            pill.className = `swarm-agent-pill ${pillClass}`;
+            pill.innerHTML = `<span>${icon}</span> <span>${this.escapeHtml(s.name)}</span> <small style="margin-left:auto; opacity:0.8;">${isDone ? 'Report Ready' : 'In Progress'}</small>`;
+            subagentsEl.appendChild(pill);
+          });
+        }
+
+        // Update checklist
+        const checklistEl = document.getElementById("chat-swarm-checklist");
+        if (checklistEl && data.checklist && data.checklist.length > 0) {
+          checklistEl.innerHTML = "";
+          data.checklist.forEach(item => {
+            const el = document.createElement("div");
+            el.className = `swarm-check-item ${item.done ? 'done' : 'pending'}`;
+            el.innerHTML = `<span>${item.done ? '☑️' : '⏳'}</span> <span>${this.escapeHtml(item.task)}</span>`;
+            checklistEl.appendChild(el);
+          });
+        }
+
+        // If no longer active and task has finished
+        if (!data.active && !this.activeTaskId) {
+          this.stopSwarmPolling();
+        }
+      } catch (e) {
+        console.warn("Chat swarm polling error:", e);
+      }
+    };
+
+    pollStatus();
+    this.swarmChatPollTimer = setInterval(pollStatus, 3000);
+  },
+
+  stopSwarmPolling() {
+    if (this.swarmChatPollTimer) {
+      clearInterval(this.swarmChatPollTimer);
+      this.swarmChatPollTimer = null;
+    }
   },
 
   renderTokenUsage(usage, duration) {

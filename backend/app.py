@@ -435,10 +435,29 @@ class AgentConversationDetailHandler(BaseHandler):
                 
             cursor.execute("SELECT * FROM conversation_messages WHERE conversation_id = ? ORDER BY id ASC;", (conv_id,))
             messages = [dict(r) for r in cursor.fetchall()]
+
+            # Check for active running task for this conversation
+            cursor.execute("""
+                SELECT * FROM tasks 
+                WHERE conversation_id = ? AND status = 'RUNNING' 
+                ORDER BY id DESC LIMIT 1;
+            """, (conv_id,))
+            active_task_row = cursor.fetchone()
+
+        active_task = None
+        if active_task_row:
+            active_task = dict(active_task_row)
+            mem_task = runner_instance.active_tasks.get(active_task["task_id"])
+            if mem_task:
+                active_task["full_response"] = mem_task.full_response
+                active_task["steps_count"] = len(mem_task.steps)
+                active_task["auth_required"] = mem_task.auth_required
+                active_task["auth_url"] = mem_task.auth_url
             
         self.write({
             "conversation": dict(conv),
-            "messages": messages
+            "messages": messages,
+            "active_task": active_task
         })
 
     @require_auth
@@ -459,6 +478,101 @@ class AgentConversationDetailHandler(BaseHandler):
             details={"deleted_conversation": conv_id}
         )
         self.write({"success": True, "conversation_id": conv_id})
+
+class TeamworkStatusHandler(BaseHandler):
+    @require_auth
+    def get(self):
+        # 1. Check for running teamwork task
+        running_task = None
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM tasks 
+                WHERE status = 'RUNNING' 
+                AND (prompt LIKE '%/teamwork%' OR prompt LIKE '%/boost%' OR prompt LIKE '%/goal%' OR prompt LIKE '%/plan%')
+                ORDER BY id DESC LIMIT 1;
+            """)
+            row = cursor.fetchone()
+            if row:
+                running_task = dict(row)
+
+        # 2. Check teamwork directory
+        candidates = [
+            DEFAULT_WORKSPACE / ".agents" / "teamwork",
+            Path("/workspace/.agents/teamwork"),
+            Path.home() / ".agents" / "teamwork"
+        ]
+        teamwork_dir = None
+        for c in candidates:
+            if c.is_dir():
+                teamwork_dir = c
+                break
+
+        checklist = []
+        iteration = ""
+        mission = ""
+        subagents = []
+
+        if teamwork_dir:
+            # Read progress.md
+            prog_file = teamwork_dir / "orchestrator" / "progress.md"
+            if not prog_file.exists():
+                prog_file = teamwork_dir / "progress.md"
+            if prog_file.exists():
+                try:
+                    with open(prog_file, "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                    for l in lines:
+                        l_str = l.strip()
+                        if l_str.startswith("- [x]"):
+                            checklist.append({"task": l_str[5:].strip(), "done": True})
+                        elif l_str.startswith("- [ ]"):
+                            checklist.append({"task": l_str[5:].strip(), "done": False})
+                        elif "Current iteration:" in l_str:
+                            iteration = l_str.split("Current iteration:")[-1].strip()
+                        elif l_str.startswith("-") and not l_str.startswith("- ["):
+                            checklist.append({"task": l_str[1:].strip(), "done": False})
+                except Exception as e:
+                    logger.warning("Error reading progress.md: %s", e)
+
+            # Read mission
+            orig_file = teamwork_dir / "ORIGINAL_REQUEST.md"
+            if orig_file.exists():
+                try:
+                    with open(orig_file, "r", encoding="utf-8") as f:
+                        mission = f.read()[:500]
+                except Exception:
+                    pass
+
+            # Scan subagent folders
+            try:
+                for item in sorted(teamwork_dir.iterdir()):
+                    if item.is_dir() and item.name not in ("orchestrator", "interviewer", "sentinel"):
+                        has_handoff = (item / "handoff.md").exists()
+                        role_name = item.name.replace("_", " ").title()
+                        status = "COMPLETED" if has_handoff else "IN_PROGRESS"
+                        subagents.append({
+                            "name": role_name,
+                            "folder": item.name,
+                            "status": status,
+                            "has_handoff": has_handoff
+                        })
+            except Exception as e:
+                logger.warning("Error scanning subagent dirs: %s", e)
+
+        if running_task and not mission:
+            mission = running_task.get("prompt", "")
+
+        is_active = bool(running_task) or any(s["status"] == "IN_PROGRESS" for s in subagents)
+
+        self.write({
+            "active": is_active,
+            "running_task": running_task,
+            "mission": mission,
+            "iteration": iteration or ("Active" if is_active else "Idle"),
+            "checklist": checklist,
+            "subagents": subagents
+        })
 
 # ================= PROJECTS CONTROLLERS =================
 
@@ -1283,6 +1397,7 @@ def make_app():
         (r"/api/agent/tasks", AgentTasksHandler),
         (r"/api/agent/conversations", AgentConversationsHandler),
         (r"/api/agent/conversations/([^/]+)", AgentConversationDetailHandler),
+        (r"/api/teamwork/status", TeamworkStatusHandler),
         (r"/api/antigravity/auth/status", AntigravityAuthStatusHandler),
         (r"/api/antigravity/auth/start", AntigravityAuthStartHandler),
         (r"/api/antigravity/auth/submit", AntigravityAuthSubmitHandler),

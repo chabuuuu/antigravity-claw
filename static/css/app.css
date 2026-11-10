@@ -3192,3 +3192,239 @@ body {
     padding: 12px 14px;
   }
 }
+
+/* =====================================================================
+   TEAMWORK & MULTI-AGENT SWARM MONITOR STYLING
+   ===================================================================== */
+.teamwork-active-card {
+  background: linear-gradient(180deg, rgba(56, 139, 253, 0.08) 0%, rgba(13, 17, 23, 0.95) 100%);
+  border: 1px solid rgba(56, 139, 253, 0.4);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.teamwork-active-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teamwork-pulse-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+
+.pulse-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 0 rgba(46, 160, 67, 0.7);
+  animation: pulse-ring 1.8s infinite;
+  display: inline-block;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(46, 160, 67, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(46, 160, 67, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(46, 160, 67, 0);
+  }
+}
+
+.swarm-timer {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.teamwork-active-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.swarm-subagents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.swarm-agent-pill {
+  background: #0d1117;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.swarm-agent-pill.active {
+  border-color: rgba(56, 139, 253, 0.5);
+  background: rgba(56, 139, 253, 0.1);
+  color: #79c0ff;
+  font-weight: 600;
+}
+
+.swarm-agent-pill.completed {
+  border-color: rgba(46, 160, 67, 0.5);
+  background: rgba(46, 160, 67, 0.1);
+  color: #7ee787;
+}
+
+.swarm-agent-pill.running {
+  border-color: rgba(210, 153, 34, 0.5);
+  background: rgba(210, 153, 34, 0.1);
+  color: #d29922;
+}
+
+.swarm-agent-pill.queued {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.swarm-checklist-box {
+  background: #090d13;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.swarm-checklist-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+.swarm-checklist-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.swarm-check-item {
+  font-size: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.swarm-check-item.done {
+  color: #7ee787;
+}
+
+.swarm-check-item.pending {
+  color: var(--text-muted);
+}
+
+.teamwork-active-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Teamwork View Monitor Banner */
+.teamwork-monitor-banner {
+  background: linear-gradient(180deg, rgba(56, 139, 253, 0.12) 0%, rgba(13, 17, 23, 0.98) 100%);
+  border: 1px solid rgba(56, 139, 253, 0.5);
+  border-radius: 8px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  animation: fadeIn 0.3s ease;
+}
+
+.monitor-banner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.monitor-banner-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--text-bright);
+}
+
+.monitor-banner-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.monitor-mission-text {
+  font-size: 13px;
+  color: #c9d1d9;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.monitor-subagents-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.monitor-checklist-container {
+  background: #090d13;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.monitor-checklist-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.monitor-checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 6px;
+}

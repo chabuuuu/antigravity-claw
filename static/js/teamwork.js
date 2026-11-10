@@ -1,12 +1,17 @@
 /**
  * Teamwork & Multi-Agent Swarm Studio Module
- * Orchestrates multi-agent teams (/teamwork, /boost, /goal, /plan).
+ * Orchestrates multi-agent teams (/teamwork, /boost, /goal, /plan),
+ * tracks live swarm progress, active subagents, and milestones.
  */
 const Teamwork = {
   selectedStrategy: "teamwork",
+  swarmPollTimer: null,
+  currentStatus: null,
 
   init() {
     this.bindEvents();
+    this.pollSwarmStatus();
+    this.swarmPollTimer = setInterval(() => this.pollSwarmStatus(), 3500);
   },
 
   bindEvents() {
@@ -21,10 +26,15 @@ const Teamwork = {
       });
     });
 
-    // Launch button
+    // Launch buttons (both bottom and top)
     const launchBtn = document.getElementById("btn-launch-swarm");
     if (launchBtn) {
       launchBtn.addEventListener("click", () => this.launch());
+    }
+
+    const launchTopBtn = document.getElementById("btn-launch-swarm-top");
+    if (launchTopBtn) {
+      launchTopBtn.addEventListener("click", () => this.launch());
     }
 
     // Return to chat button
@@ -32,6 +42,29 @@ const Teamwork = {
     if (toChatBtn) {
       toChatBtn.addEventListener("click", () => {
         if (typeof App !== "undefined") App.switchView("chat");
+      });
+    }
+
+    // Monitor actions
+    const monitorChatBtn = document.getElementById("btn-monitor-to-chat");
+    if (monitorChatBtn) {
+      monitorChatBtn.addEventListener("click", () => {
+        if (typeof App !== "undefined") App.switchView("chat");
+      });
+    }
+
+    const monitorStopBtn = document.getElementById("btn-monitor-stop");
+    if (monitorStopBtn) {
+      monitorStopBtn.addEventListener("click", async () => {
+        if (confirm("Stop the running Multi-Agent Swarm?")) {
+          const taskId = this.currentStatus?.running_task?.task_id;
+          if (taskId && typeof Chat !== "undefined") {
+            await Chat.cancelTask(taskId);
+          } else if (typeof Chat !== "undefined") {
+            await Chat.cancelTask();
+          }
+          await this.pollSwarmStatus();
+        }
       });
     }
 
@@ -97,6 +130,110 @@ const Teamwork = {
         Chat.sendPrompt();
       }, 100);
     }
+  },
+
+  async pollSwarmStatus() {
+    try {
+      const res = await Auth.fetchWithAuth("/api/teamwork/status");
+      if (!res.ok) return;
+      const data = await res.json();
+      this.currentStatus = data;
+
+      const banner = document.getElementById("teamwork-live-monitor-banner");
+      if (!banner) return;
+
+      if (data.active) {
+        banner.style.display = "flex";
+
+        // Update mission
+        const missionEl = document.getElementById("monitor-mission-text");
+        if (missionEl) {
+          missionEl.innerText = data.mission || "Autonomous multi-agent mission in progress...";
+        }
+
+        // Update badges
+        const iterBadge = document.getElementById("monitor-iteration-badge");
+        if (iterBadge) {
+          iterBadge.innerText = data.iteration || "Iteration Active";
+        }
+
+        const phaseBadge = document.getElementById("monitor-phase-badge");
+        if (phaseBadge) {
+          let phaseName = "Survey Phase";
+          if (data.checklist && data.checklist.some(c => c.done && c.task.includes("Explorers"))) {
+            phaseName = "Implementation Phase";
+          }
+          phaseBadge.innerText = phaseName;
+        }
+
+        // Render subagents
+        const subagentsContainer = document.getElementById("monitor-subagents-container");
+        if (subagentsContainer) {
+          if (!data.subagents || data.subagents.length === 0) {
+            subagentsContainer.innerHTML = `
+              <div class="swarm-agent-pill active">👑 Coordinator Agent: Orchestrating</div>
+              <div class="swarm-agent-pill running">🔍 Explorer Swarm: Initializing</div>
+            `;
+          } else {
+            subagentsContainer.innerHTML = `
+              <div class="swarm-agent-pill active">👑 Coordinator Agent: Orchestrating</div>
+            `;
+            data.subagents.forEach(s => {
+              const isDone = s.status === "COMPLETED";
+              const pillClass = isDone ? "completed" : "running";
+              const icon = isDone ? "✅" : "⚡";
+              const pill = document.createElement("div");
+              pill.className = `swarm-agent-pill ${pillClass}`;
+              pill.innerHTML = `<span>${icon}</span> <span>${this.escapeHtml(s.name)}</span> <small style="margin-left:auto; opacity:0.8;">${isDone ? 'Report Ready' : 'In Progress'}</small>`;
+              subagentsContainer.appendChild(pill);
+            });
+          }
+        }
+
+        // Render checklist
+        const checklistGrid = document.getElementById("monitor-checklist-list");
+        if (checklistGrid) {
+          if (!data.checklist || data.checklist.length === 0) {
+            checklistGrid.innerHTML = `<div style="color:var(--text-muted); font-size:12px;">Decomposing mission into phased deliverables...</div>`;
+          } else {
+            checklistGrid.innerHTML = "";
+            data.checklist.forEach(item => {
+              const el = document.createElement("div");
+              el.className = `swarm-check-item ${item.done ? 'done' : 'pending'}`;
+              el.innerHTML = `<span>${item.done ? '☑️' : '⏳'}</span> <span>${this.escapeHtml(item.task)}</span>`;
+              checklistGrid.appendChild(el);
+            });
+          }
+        }
+
+        // Highlight sidebar nav item
+        const navItem = document.querySelector('.nav-item[data-view="teamwork"]');
+        if (navItem && !navItem.querySelector(".pulse-dot")) {
+          const dot = document.createElement("span");
+          dot.className = "pulse-dot";
+          dot.style.marginLeft = "auto";
+          navItem.appendChild(dot);
+        }
+      } else {
+        banner.style.display = "none";
+        const navItem = document.querySelector('.nav-item[data-view="teamwork"]');
+        if (navItem) {
+          const dot = navItem.querySelector(".pulse-dot");
+          if (dot) dot.remove();
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to poll teamwork status:", e);
+    }
+  },
+
+  escapeHtml(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 };
-

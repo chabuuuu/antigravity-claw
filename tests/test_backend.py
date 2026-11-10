@@ -227,6 +227,9 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
         res14 = self.fetch('/api/projects')
         self.assertEqual(res14.code, 401)
 
+        res15 = self.fetch('/api/teamwork/status')
+        self.assertEqual(res15.code, 401)
+
 if __name__ == "__main__":
     unittest.main()
 

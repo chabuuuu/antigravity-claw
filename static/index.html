@@ -400,7 +400,35 @@
               <h2 class="panel-title">👥 Teamwork & Multi-Agent Swarm</h2>
               <p class="panel-subtitle">Harness autonomous teams of specialized AI agents working in concert on complex missions.</p>
             </div>
-            <button id="btn-teamwork-to-chat" class="btn-secondary">💬 Go to Chat Workspace</button>
+            <div class="header-actions" style="display:flex; gap:10px;">
+              <button id="btn-teamwork-to-chat" class="btn-secondary">💬 Go to Chat Workspace</button>
+              <button id="btn-launch-swarm-top" class="btn-primary">🚀 Launch Swarm</button>
+            </div>
+          </div>
+
+          <!-- Live Swarm Monitor (Visible when a swarm task is running) -->
+          <div id="teamwork-live-monitor-banner" class="teamwork-monitor-banner" style="display: none;">
+            <div class="monitor-banner-header">
+              <div class="monitor-banner-title">
+                <span class="pulse-dot"></span>
+                <strong>Active Multi-Agent Swarm Mission</strong>
+                <span id="monitor-phase-badge" class="badge badge-active">Survey Phase</span>
+                <span id="monitor-iteration-badge" class="badge badge-default">Iteration 0 / 32</span>
+              </div>
+              <div class="monitor-banner-actions">
+                <button id="btn-monitor-to-chat" class="btn-primary btn-sm">💬 View Live Chat Stream</button>
+                <button id="btn-monitor-stop" class="btn-cancel btn-sm">🛑 Stop Swarm</button>
+              </div>
+            </div>
+
+            <p id="monitor-mission-text" class="monitor-mission-text"></p>
+
+            <div class="monitor-subagents-row" id="monitor-subagents-container"></div>
+
+            <div class="monitor-checklist-container">
+              <div class="monitor-checklist-title">📋 Milestones & Progress</div>
+              <div id="monitor-checklist-list" class="monitor-checklist-grid"></div>
+            </div>
           </div>
 
           <div class="teamwork-grid">
