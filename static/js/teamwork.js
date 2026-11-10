@@ -55,17 +55,12 @@ const Teamwork = {
 
     const monitorStopBtn = document.getElementById("btn-monitor-stop");
     if (monitorStopBtn) {
-      monitorStopBtn.addEventListener("click", async () => {
-        if (confirm("Stop the running Multi-Agent Swarm?")) {
-          const taskId = this.currentStatus?.running_task?.task_id;
-          if (taskId && typeof Chat !== "undefined") {
-            await Chat.cancelTask(taskId);
-          } else if (typeof Chat !== "undefined") {
-            await Chat.cancelTask();
-          }
-          await this.pollSwarmStatus();
-        }
-      });
+      monitorStopBtn.addEventListener("click", () => this.stopSwarm());
+    }
+
+    const topStopBtn = document.getElementById("btn-teamwork-stop-top");
+    if (topStopBtn) {
+      topStopBtn.addEventListener("click", () => this.stopSwarm());
     }
 
     // Mission template chips
@@ -132,6 +127,30 @@ const Teamwork = {
     }
   },
 
+  async stopSwarm() {
+    if (!confirm("Are you sure you want to stop the active Multi-Agent Swarm mission?")) {
+      return;
+    }
+    const taskId = this.currentStatus?.running_task?.task_id;
+    try {
+      const res = await Auth.fetchWithAuth("/api/teamwork/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task_id: taskId || null })
+      });
+      const data = await res.json();
+      if (typeof Chat !== "undefined") {
+        Chat.appendSystemNotice("🛑 Multi-Agent Swarm stopped by user.");
+        Chat.setExecutionState(false);
+        Chat.stopSwarmPolling();
+      }
+      await this.pollSwarmStatus();
+    } catch (e) {
+      console.error("Failed to stop swarm:", e);
+      alert("Error stopping swarm: " + e.message);
+    }
+  },
+
   async pollSwarmStatus() {
     try {
       const res = await Auth.fetchWithAuth("/api/teamwork/status");
@@ -140,6 +159,10 @@ const Teamwork = {
       this.currentStatus = data;
 
       const banner = document.getElementById("teamwork-live-monitor-banner");
+      const topStopBtn = document.getElementById("btn-teamwork-stop-top");
+      if (topStopBtn) {
+        topStopBtn.style.display = data.active ? "inline-flex" : "none";
+      }
       if (!banner) return;
 
       if (data.active) {

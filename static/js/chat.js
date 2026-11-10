@@ -719,14 +719,22 @@ const Chat = {
 
   async cancelTask(taskIdOverride) {
     const targetTaskId = taskIdOverride || this.activeTaskId;
-    if (!targetTaskId) return;
     try {
       this.stopSwarmPolling();
-      await fetch("/api/agent/cancel", {
+      if (targetTaskId) {
+        await fetch("/api/agent/cancel", {
+          method: "POST",
+          headers: Auth.getAuthHeaders(),
+          body: JSON.stringify({ task_id: targetTaskId })
+        });
+      }
+      // Also stop multi-agent swarm processes if any were running
+      await fetch("/api/teamwork/stop", {
         method: "POST",
         headers: Auth.getAuthHeaders(),
-        body: JSON.stringify({ task_id: targetTaskId })
-      });
+        body: JSON.stringify({ task_id: targetTaskId || null })
+      }).catch(() => {});
+
       this.appendSystemNotice("⚠️ Task cancellation requested by user.");
       this.setExecutionState(false);
     } catch (e) {
@@ -1077,7 +1085,7 @@ const Chat = {
 
         <div class="teamwork-active-footer">
           <button type="button" class="btn-secondary btn-sm" onclick="App.switchView('teamwork')">👥 Swarm Studio Details</button>
-          <button type="button" class="btn-cancel btn-sm" onclick="Chat.cancelTask()">🛑 Stop Swarm</button>
+          <button type="button" class="btn-danger btn-sm" onclick="Chat.cancelTask()">🛑 Stop Swarm</button>
         </div>
       </div>
     `;

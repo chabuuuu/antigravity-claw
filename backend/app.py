@@ -588,6 +588,86 @@ class TeamworkStatusHandler(BaseHandler):
             "subagents": subagents
         })
 
+class TeamworkStopHandler(BaseHandler):
+    @require_auth
+    async def post(self):
+        data = self.json_body()
+        task_id = data.get("task_id")
+
+        stopped_tasks = []
+
+        # 1. Cancel requested task if provided
+        if task_id:
+            await runner_instance.cancel_task(
+                task_id,
+                user_id=int(self.current_user["sub"]),
+                username=self.current_user["username"],
+                ip_address=self.get_client_ip()
+            )
+            stopped_tasks.append(task_id)
+
+        # 2. Cancel all running tasks in DB that match teamwork / boost / goal / plan
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT task_id, pid FROM tasks 
+                WHERE status = 'RUNNING' 
+                AND (prompt LIKE '%/teamwork%' OR prompt LIKE '%/boost%' OR prompt LIKE '%/goal%' OR prompt LIKE '%/plan%');
+            """)
+            rows = cursor.fetchall()
+            for r in rows:
+                tid = r["task_id"]
+                pid = r["pid"]
+                await runner_instance.cancel_task(
+                    tid,
+                    user_id=int(self.current_user["sub"]),
+                    username=self.current_user["username"],
+                    ip_address=self.get_client_ip()
+                )
+                if pid:
+                    try:
+                        import os, signal
+                        os.kill(pid, signal.SIGTERM)
+                    except Exception:
+                        pass
+                stopped_tasks.append(tid)
+
+            cursor.execute("""
+                UPDATE tasks SET status = 'CANCELLED'
+                WHERE status = 'RUNNING' 
+                AND (prompt LIKE '%/teamwork%' OR prompt LIKE '%/boost%' OR prompt LIKE '%/goal%' OR prompt LIKE '%/plan%');
+            """)
+            conn.commit()
+
+        # 3. Terminate any orphaned 'agy' teamwork/swarm processes on host
+        try:
+            import psutil
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    cmdline = " ".join(proc.info.get('cmdline') or [])
+                    if "agy" in cmdline and ("/teamwork" in cmdline or "/boost" in cmdline or "teamwork" in cmdline):
+                        proc.terminate()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+        except Exception as pe:
+            logger.warning("Error terminating agy swarm processes: %s", pe)
+
+        log_audit(
+            action=AuditAction.AGENT_TASK_CANCEL,
+            status="SUCCESS",
+            resource="teamwork_swarm",
+            user_id=int(self.current_user["sub"]),
+            username=self.current_user["username"],
+            ip_address=self.get_client_ip(),
+            details={"stopped_tasks": stopped_tasks}
+        )
+
+        self.write({
+            "success": True,
+            "message": "Multi-agent swarm stopped successfully.",
+            "stopped_tasks": stopped_tasks
+        })
+
 # ================= PROJECTS CONTROLLERS =================
 
 class ProjectsListHandler(BaseHandler):
@@ -1416,6 +1496,7 @@ def make_app():
         (r"/api/agent/conversations", AgentConversationsHandler),
         (r"/api/agent/conversations/([^/]+)", AgentConversationDetailHandler),
         (r"/api/teamwork/status", TeamworkStatusHandler),
+        (r"/api/teamwork/stop", TeamworkStopHandler),
         (r"/api/antigravity/auth/status", AntigravityAuthStatusHandler),
         (r"/api/antigravity/auth/start", AntigravityAuthStartHandler),
         (r"/api/antigravity/auth/submit", AntigravityAuthSubmitHandler),

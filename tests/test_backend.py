@@ -235,6 +235,9 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
         res15 = self.fetch('/api/teamwork/status')
         self.assertEqual(res15.code, 401)
 
+        res16 = self.fetch('/api/teamwork/stop', method='POST', body='{}')
+        self.assertEqual(res16.code, 401)
+
     def test_projects_http_crud(self):
         import json
         token, _, _ = authenticate_user("testadmin", "ValidPassword123!", "127.0.0.1", "test")
@@ -328,6 +331,22 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
         # Explicit notify requested
         normal_task.webhook_notify = True
         self.assertTrue(notifier_instance.should_notify_task(normal_task))
+
+    def test_teamwork_stop_endpoint(self):
+        import json
+        token, _, _ = authenticate_user("testadmin", "ValidPassword123!", "127.0.0.1", "test")
+        self.assertIsNotNone(token)
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        # Call stop with empty payload
+        res_stop = self.fetch('/api/teamwork/stop', method='POST', headers=headers, body='{}')
+        self.assertEqual(res_stop.code, 200)
+        data = json.loads(res_stop.body.decode('utf-8'))
+        self.assertTrue(data.get("success"))
+        self.assertIn("stopped_tasks", data)
 
 if __name__ == "__main__":
     unittest.main()

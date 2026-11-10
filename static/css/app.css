@@ -733,13 +733,55 @@ body {
   background-color: var(--accent-red);
   color: #fff;
   border: none;
-  padding: 0 14px;
-  height: 52px;
+  padding: 6px 14px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background-color 0.15s ease;
+}
+
+.btn-cancel:hover {
+  background-color: #b62324;
+}
+
+.btn-danger {
+  background-color: var(--accent-red);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background-color 0.15s ease;
+}
+
+.btn-danger:hover {
+  background-color: #b62324;
+}
+
+.btn-danger.btn-sm,
+.btn-cancel.btn-sm,
+.btn-primary.btn-sm,
+.btn-secondary.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  height: auto;
+}
+
+#btn-chat-cancel {
   display: none;
+  height: 52px;
+  padding: 0 14px;
 }
 
 /* WORKSPACE VIEW */
