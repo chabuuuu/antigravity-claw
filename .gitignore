@@ -7,3 +7,6 @@ data/
 logs/
 .DS_Store
 workspace
+*.db
+*.db-wal
+*.db-shm

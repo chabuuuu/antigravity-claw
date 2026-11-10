@@ -178,6 +178,11 @@ import tornado.testing
 from backend.app import make_app
 
 class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
+    def setUp(self):
+        init_db()
+        create_admin_user("testadmin", "ValidPassword123!", "127.0.0.1")
+        super().setUp()
+
     def get_app(self):
         return make_app()
 
@@ -229,6 +234,57 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
 
         res15 = self.fetch('/api/teamwork/status')
         self.assertEqual(res15.code, 401)
+
+    def test_projects_http_crud(self):
+        import json
+        token, _, _ = authenticate_user("testadmin", "ValidPassword123!", "127.0.0.1", "test")
+        self.assertIsNotNone(token)
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        # 1. Create project
+        create_payload = json.dumps({
+            "name": "hello world",
+            "path": "",
+            "is_default": False,
+            "set_active": True
+        })
+        res_create = self.fetch('/api/projects', method='POST', headers=headers, body=create_payload)
+        self.assertEqual(res_create.code, 200)
+        data = json.loads(res_create.body.decode('utf-8'))
+        self.assertTrue(data.get("success"))
+        created = data.get("project")
+        self.assertEqual(created["name"], "hello world")
+        proj_id = created["id"]
+
+        # 2. Get projects list
+        res_list = self.fetch('/api/projects', headers=headers)
+        self.assertEqual(res_list.code, 200)
+        list_data = json.loads(res_list.body.decode('utf-8'))
+        self.assertTrue(any(p["id"] == proj_id for p in list_data.get("projects", [])))
+
+        # 3. Update project
+        update_payload = json.dumps({
+            "name": "hello world renamed",
+            "path": "/tmp/hw",
+            "is_default": False,
+            "set_active": True
+        })
+        res_update = self.fetch(f'/api/projects/{proj_id}', method='PUT', headers=headers, body=update_payload)
+        self.assertEqual(res_update.code, 200)
+        up_data = json.loads(res_update.body.decode('utf-8'))
+        self.assertEqual(up_data["project"]["name"], "hello world renamed")
+
+        # 4. Set active project
+        active_payload = json.dumps({"project_id": proj_id})
+        res_active = self.fetch('/api/projects/active', method='POST', headers=headers, body=active_payload)
+        self.assertEqual(res_active.code, 200)
+
+        # 5. Delete project
+        res_del = self.fetch(f'/api/projects/{proj_id}', method='DELETE', headers=headers)
+        self.assertEqual(res_del.code, 200)
 
 if __name__ == "__main__":
     unittest.main()

@@ -363,9 +363,10 @@ const Projects = {
     }
 
     try {
+      let res;
       if (this.editingProjectId) {
         // Update
-        const res = await Auth.fetchWithAuth(`/api/projects/${encodeURIComponent(this.editingProjectId)}`, {
+        res = await Auth.fetchWithAuth(`/api/projects/${encodeURIComponent(this.editingProjectId)}`, {
           method: "PUT",
           body: JSON.stringify({
             name,
@@ -374,11 +375,9 @@ const Projects = {
             set_active: setActive
           })
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to update project");
       } else {
         // Create
-        const res = await Auth.fetchWithAuth("/api/projects", {
+        res = await Auth.fetchWithAuth("/api/projects", {
           method: "POST",
           body: JSON.stringify({
             name,
@@ -387,9 +386,15 @@ const Projects = {
             set_active: setActive
           })
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to create project");
       }
+
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (err) {
+        data = { error: `Server error (${res.status} ${res.statusText || 'Error'})` };
+      }
+      if (!res.ok) throw new Error(data.error || "Failed to save project");
 
       this.closeModal();
       await this.loadProjects();
@@ -417,7 +422,12 @@ const Projects = {
       const res = await Auth.fetchWithAuth(`/api/projects/${encodeURIComponent(projectId)}`, {
         method: "DELETE"
       });
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (err) {
+        data = { error: `Server error (${res.status} ${res.statusText || 'Error'})` };
+      }
       if (!res.ok) throw new Error(data.error || "Failed to delete project");
       await this.loadProjects();
     } catch (e) {

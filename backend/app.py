@@ -74,6 +74,18 @@ class BaseHandler(tornado.web.RequestHandler):
             pass
         return {}
 
+    def get_json_body(self) -> Dict[str, Any]:
+        return self.json_body()
+
+    def write_error(self, status_code: int, **kwargs):
+        self.set_header("Content-Type", "application/json; charset=UTF-8")
+        err_msg = self._reason
+        if "exc_info" in kwargs:
+            exc = kwargs["exc_info"][1]
+            if exc:
+                err_msg = str(exc)
+        self.finish(json.dumps({"error": err_msg, "status": status_code}))
+
     def get_current_user_payload(self) -> Optional[Dict[str, Any]]:
         auth_header = self.request.headers.get("Authorization", "")
         token = None
@@ -590,7 +602,7 @@ class ProjectsListHandler(BaseHandler):
 
     @require_auth
     def post(self):
-        data = self.get_json_body()
+        data = self.json_body()
         name = data.get("name", "").strip()
         if not name:
             self.set_status(400)
@@ -634,7 +646,7 @@ class ProjectDetailHandler(BaseHandler):
 
     @require_auth
     def put(self, project_id: str):
-        data = self.get_json_body()
+        data = self.json_body()
         name = data.get("name")
         path = data.get("path")
         is_default = data.get("is_default")
@@ -690,7 +702,7 @@ class ProjectDetailHandler(BaseHandler):
 class ProjectActiveHandler(BaseHandler):
     @require_auth
     def post(self):
-        data = self.get_json_body()
+        data = self.json_body()
         project_id = data.get("project_id", "").strip()
         if not project_id:
             self.set_status(400)
