@@ -10,12 +10,15 @@ from typing import Optional, Dict, Any
 import requests
 
 from backend.config import (
+    DATA_DIR,
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
     DISCORD_WEBHOOK_URL, SLACK_WEBHOOK_URL,
     GENERIC_WEBHOOK_URL
 )
 
 logger = logging.getLogger("openclaw.webhook_notifier")
+
+CONFIG_FILE = DATA_DIR / "webhooks_config.json"
 
 class WebhookNotifier:
     def __init__(self):
@@ -24,8 +27,55 @@ class WebhookNotifier:
         self.discord_url = DISCORD_WEBHOOK_URL
         self.slack_url = SLACK_WEBHOOK_URL
         self.generic_url = GENERIC_WEBHOOK_URL
+        self.notify_swarms: bool = True
+        self.notify_all_tasks: bool = False
+        self.min_duration_seconds: int = 10
 
-    def update_config(self, config: Dict[str, str]):
+        self._load_saved_config()
+
+    def _load_saved_config(self):
+        if CONFIG_FILE.exists():
+            try:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    saved = json.load(f)
+                if "telegram_token" in saved and saved["telegram_token"]:
+                    self.telegram_token = saved["telegram_token"]
+                if "telegram_chat_id" in saved and saved["telegram_chat_id"]:
+                    self.telegram_chat_id = saved["telegram_chat_id"]
+                if "discord_url" in saved and saved["discord_url"]:
+                    self.discord_url = saved["discord_url"]
+                if "slack_url" in saved and saved["slack_url"]:
+                    self.slack_url = saved["slack_url"]
+                if "generic_url" in saved and saved["generic_url"]:
+                    self.generic_url = saved["generic_url"]
+                if "notify_swarms" in saved:
+                    self.notify_swarms = bool(saved["notify_swarms"])
+                if "notify_all_tasks" in saved:
+                    self.notify_all_tasks = bool(saved["notify_all_tasks"])
+                if "min_duration_seconds" in saved:
+                    self.min_duration_seconds = int(saved["min_duration_seconds"])
+            except Exception as e:
+                logger.warning("Could not read webhooks config file: %s", e)
+
+    def _save_config(self):
+        try:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            data = {
+                "telegram_token": self.telegram_token,
+                "telegram_chat_id": self.telegram_chat_id,
+                "discord_url": self.discord_url,
+                "slack_url": self.slack_url,
+                "generic_url": self.generic_url,
+                "notify_swarms": self.notify_swarms,
+                "notify_all_tasks": self.notify_all_tasks,
+                "min_duration_seconds": self.min_duration_seconds
+            }
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.error("Failed to save webhooks config: %s", e)
+
+    def update_config(self, config: Dict[str, Any]):
         if "telegram_token" in config:
             self.telegram_token = config["telegram_token"]
         if "telegram_chat_id" in config:
@@ -36,6 +86,46 @@ class WebhookNotifier:
             self.slack_url = config["slack_url"]
         if "generic_url" in config:
             self.generic_url = config["generic_url"]
+        if "notify_swarms" in config:
+            self.notify_swarms = bool(config["notify_swarms"])
+        if "notify_all_tasks" in config:
+            self.notify_all_tasks = bool(config["notify_all_tasks"])
+        if "min_duration_seconds" in config:
+            try:
+                self.min_duration_seconds = max(0, int(config["min_duration_seconds"]))
+            except (ValueError, TypeError):
+                pass
+        self._save_config()
+
+    def has_any_channel_configured(self) -> bool:
+        return bool(
+            (self.telegram_token and self.telegram_chat_id) or
+            self.discord_url or
+            self.slack_url or
+            self.generic_url
+        )
+
+    def should_notify_task(self, task) -> bool:
+        if not self.has_any_channel_configured():
+            return False
+
+        # If user explicitly requested webhook notification for this prompt
+        if getattr(task, "webhook_notify", False):
+            return True
+
+        prompt = (getattr(task, "prompt", "") or "").lower()
+        is_swarm = any(cmd in prompt for cmd in ("/teamwork", "/boost", "/goal", "/plan"))
+
+        # If notify_swarms is enabled and this is a swarm task
+        if self.notify_swarms and is_swarm:
+            return True
+
+        # If notify_all_tasks is enabled and duration meets threshold
+        duration = getattr(task, "duration_seconds", 0) or 0
+        if self.notify_all_tasks and duration >= self.min_duration_seconds:
+            return True
+
+        return False
 
     def notify(self, title: str, message: str, event_type: str = "INFO", metadata: Optional[Dict[str, Any]] = None):
         """Dispatches notification to all configured webhooks asynchronously or synchronously."""

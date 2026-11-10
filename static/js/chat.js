@@ -469,6 +469,7 @@ const Chat = {
     const agent = agentSelect ? agentSelect.value : "";
     const autoApprove = document.getElementById("chat-auto-approve").checked;
     const sandbox = document.getElementById("chat-sandbox").checked;
+    const webhookNotify = document.getElementById("chat-webhook-notify") ? document.getElementById("chat-webhook-notify").checked : false;
 
     // Advanced Flags
     const continueSession = document.getElementById("chat-continue") ? document.getElementById("chat-continue").checked : false;
@@ -673,6 +674,7 @@ const Chat = {
       if (printTimeout) payload.print_timeout = printTimeout;
       if (jsonSchema) payload.json_schema = jsonSchema;
       if (sessionSettings) payload.settings = sessionSettings;
+      if (webhookNotify) payload.webhook_notify = true;
 
       const res = await fetch("/api/agent/prompt", {
         method: "POST",

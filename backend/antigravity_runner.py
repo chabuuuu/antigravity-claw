@@ -19,6 +19,7 @@ from pathlib import Path
 from backend.config import AGY_BIN_PATH, DEFAULT_WORKSPACE
 from backend.database import get_db_connection
 from backend.audit import log_audit, AuditAction
+from backend.webhook_notifier import notifier_instance
 
 logger = logging.getLogger("openclaw.antigravity_runner")
 
@@ -45,6 +46,7 @@ class ActiveTask:
         self.auth_url: Optional[str] = None
         self.stderr_buffer = ""
         self.pty_master_fd: Optional[int] = None
+        self.webhook_notify: bool = False
 
 class AntigravityRunner:
     def __init__(self):
@@ -75,6 +77,7 @@ class AntigravityRunner:
         json_schema: Optional[str] = None,
         print_timeout: Optional[str] = None,
         session_settings: Optional[Any] = None,
+        webhook_notify: bool = False,
         user_id: Optional[int] = None,
         username: Optional[str] = None,
         ip_address: Optional[str] = None
@@ -89,6 +92,7 @@ class AntigravityRunner:
         clean_project = (project or "Default").strip() or "Default"
         task = ActiveTask(task_id, conv_id, prompt, user_id, username)
         task.project = clean_project
+        task.webhook_notify = webhook_notify
         self.active_tasks[task_id] = task
 
         # Check for existing agy_conversation_id if continuing an existing session
@@ -397,6 +401,41 @@ class AntigravityRunner:
                     "usage": task.total_usage
                 }
             )
+
+            # Webhook notification trigger
+            try:
+                if notifier_instance.should_notify_task(task):
+                    status = "SUCCESS" if task.status == "COMPLETED" else "FAILED"
+                    prompt = task.prompt or ""
+                    is_swarm = any(cmd in prompt.lower() for cmd in ("/teamwork", "/boost", "/goal", "/plan"))
+                    task_type = "Multi-Agent Swarm" if is_swarm else "Agent Task"
+                    title = f"Antigravity {task_type}: {task.status}"
+
+                    clean_res = (assistant_content or task.full_response or "").strip()
+                    if len(clean_res) > 600:
+                        clean_res = clean_res[:600] + "..."
+
+                    duration_str = f"{task.duration_seconds:.1f}s" if task.duration_seconds else "N/A"
+                    msg = (
+                        f"Task: {task_type}\n"
+                        f"Status: {task.status} (Duration: {duration_str})\n"
+                        f"Prompt: {prompt[:140]}...\n\n"
+                        f"Outcome:\n{clean_res or 'Completed.'}"
+                    )
+                    notifier_instance.notify(
+                        title=title,
+                        message=msg,
+                        event_type=status,
+                        metadata={
+                            "task_id": task.task_id,
+                            "conversation_id": task.conversation_id,
+                            "status": task.status,
+                            "project": task.project,
+                            "duration": duration_str
+                        }
+                    )
+            except Exception as notify_err:
+                logger.error("Failed to trigger webhook notification for task %s: %s", task.task_id, notify_err)
 
             # Trigger callbacks (such as notifications)
             for cb in self.on_task_finished_callbacks:

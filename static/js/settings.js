@@ -704,6 +704,15 @@ const Settings = {
         document.getElementById("webhook-slack-url").placeholder = "•••••••••••• (Configured)";
       }
       document.getElementById("webhook-generic-url").value = data.generic_url || "";
+      if (document.getElementById("webhook-notify-swarms") && data.notify_swarms !== undefined) {
+        document.getElementById("webhook-notify-swarms").checked = Boolean(data.notify_swarms);
+      }
+      if (document.getElementById("webhook-notify-all-tasks") && data.notify_all_tasks !== undefined) {
+        document.getElementById("webhook-notify-all-tasks").checked = Boolean(data.notify_all_tasks);
+      }
+      if (document.getElementById("webhook-min-duration") && data.min_duration_seconds !== undefined) {
+        document.getElementById("webhook-min-duration").value = data.min_duration_seconds;
+      }
     } catch (e) {
       console.warn("Error loading webhooks:", e);
     }
@@ -715,8 +724,15 @@ const Settings = {
     const discordUrl = document.getElementById("webhook-discord-url").value.trim();
     const slackUrl = document.getElementById("webhook-slack-url").value.trim();
     const genericUrl = document.getElementById("webhook-generic-url").value.trim();
+    const notifySwarms = document.getElementById("webhook-notify-swarms") ? document.getElementById("webhook-notify-swarms").checked : true;
+    const notifyAllTasks = document.getElementById("webhook-notify-all-tasks") ? document.getElementById("webhook-notify-all-tasks").checked : false;
+    const minDuration = document.getElementById("webhook-min-duration") ? parseInt(document.getElementById("webhook-min-duration").value, 10) : 10;
 
-    const payload = {};
+    const payload = {
+      notify_swarms: notifySwarms,
+      notify_all_tasks: notifyAllTasks,
+      min_duration_seconds: isNaN(minDuration) ? 10 : minDuration
+    };
     if (tgToken) payload.telegram_token = tgToken;
     if (tgChat) payload.telegram_chat_id = tgChat;
     if (discordUrl) payload.discord_url = discordUrl;

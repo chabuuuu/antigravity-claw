@@ -221,6 +221,7 @@ class AgentPromptHandler(BaseHandler):
         json_schema = data.get("json_schema")
         print_timeout = data.get("print_timeout")
         session_settings = data.get("settings")
+        webhook_notify = bool(data.get("webhook_notify", False))
         
         user_id = int(self.current_user["sub"])
         username = self.current_user["username"]
@@ -243,6 +244,7 @@ class AgentPromptHandler(BaseHandler):
             json_schema=json_schema,
             print_timeout=print_timeout,
             session_settings=session_settings,
+            webhook_notify=webhook_notify,
             user_id=user_id,
             username=username,
             ip_address=self.get_client_ip()
@@ -1079,10 +1081,13 @@ class SettingsWebhooksHandler(BaseHandler):
     def get(self):
         self.write({
             "telegram_token_configured": bool(notifier_instance.telegram_token),
-            "telegram_chat_id": notifier_instance.telegram_chat_id,
+            "telegram_chat_id": notifier_instance.telegram_chat_id or "",
             "discord_url_configured": bool(notifier_instance.discord_url),
             "slack_url_configured": bool(notifier_instance.slack_url),
-            "generic_url": notifier_instance.generic_url
+            "generic_url": notifier_instance.generic_url or "",
+            "notify_swarms": notifier_instance.notify_swarms,
+            "notify_all_tasks": notifier_instance.notify_all_tasks,
+            "min_duration_seconds": notifier_instance.min_duration_seconds
         })
 
     @require_auth

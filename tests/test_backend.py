@@ -286,6 +286,47 @@ class TestHttpRoutes(tornado.testing.AsyncHTTPTestCase):
         res_del = self.fetch(f'/api/projects/{proj_id}', method='DELETE', headers=headers)
         self.assertEqual(res_del.code, 200)
 
+    def test_webhook_notifier_config_and_rules(self):
+        import json
+        from backend.webhook_notifier import notifier_instance
+        from backend.antigravity_runner import ActiveTask
+
+        token, _, _ = authenticate_user("testadmin", "ValidPassword123!", "127.0.0.1", "test")
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        # 1. Update webhook config via API
+        payload = json.dumps({
+            "generic_url": "https://example.com/webhook",
+            "notify_swarms": True,
+            "notify_all_tasks": False,
+            "min_duration_seconds": 15
+        })
+        res_post = self.fetch('/api/settings/webhooks', method='POST', headers=headers, body=payload)
+        self.assertEqual(res_post.code, 200)
+
+        # 2. Get webhook config
+        res_get = self.fetch('/api/settings/webhooks', headers=headers)
+        self.assertEqual(res_get.code, 200)
+        data = json.loads(res_get.body.decode('utf-8'))
+        self.assertEqual(data["generic_url"], "https://example.com/webhook")
+        self.assertTrue(data["notify_swarms"])
+        self.assertEqual(data["min_duration_seconds"], 15)
+
+        # 3. Test should_notify_task rules
+        swarm_task = ActiveTask("t1", "c1", "/teamwork Build auth", 1, "test")
+        self.assertTrue(notifier_instance.should_notify_task(swarm_task))
+
+        normal_task = ActiveTask("t2", "c2", "say hello", 1, "test")
+        normal_task.duration_seconds = 2.0
+        self.assertFalse(notifier_instance.should_notify_task(normal_task))
+
+        # Explicit notify requested
+        normal_task.webhook_notify = True
+        self.assertTrue(notifier_instance.should_notify_task(normal_task))
+
 if __name__ == "__main__":
     unittest.main()
 
